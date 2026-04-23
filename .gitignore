@@ -1,0 +1,15 @@
+# VS 2022
+mfc-client/.vs/
+mfc-client/x64/
+mfc-client/Debug/
+mfc-client/Release/
+*.user
+
+# Python
+backend/venv/
+backend/__pycache__/
+*.pyc
+
+# React
+frontend/node_modules/
+frontend/dist/
