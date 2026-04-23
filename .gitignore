@@ -1,15 +1,24 @@
-# VS 2022
-mfc-client/.vs/
-mfc-client/x64/
-mfc-client/Debug/
-mfc-client/Release/
+# Visual Studio (MFC)
+.vs/
+MFC/x64/
+MFC/Debug/
+MFC/Release/
 *.user
+*.suo
+*.db
+*.ipch
 
-# Python
-backend/venv/
-backend/__pycache__/
+# Python (Flask)
+Flask/venv/
+Flask/__pycache__/
 *.pyc
+.env
 
-# React
-frontend/node_modules/
-frontend/dist/
+# React (WebUI)
+WebUI/node_modules/
+WebUI/dist/
+.eslintcache
+
+# 기타
+.DS_Store
+Thumbs.db
