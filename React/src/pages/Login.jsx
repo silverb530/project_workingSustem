@@ -1,6 +1,7 @@
 ﻿import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import AppManager from '../manager/App_manager';
 
 const Login = () => {
     const [id, setId] = useState('');
@@ -17,7 +18,7 @@ const Login = () => {
 
             if (response.data.result === "success") {
                 alert(response.data.user_name + "님, 환영합니다!");
-                navigate('/dashboard'); // 로그인 성공 시 대시보드로 이동
+                navigate('/AppManager'); // 로그인 성공 시 대시보드로 이동
             }
         } catch (error) {
             console.error("로그인 에러:", error);
