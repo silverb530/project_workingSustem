@@ -42,3 +42,18 @@ def execute_query(sql, params=None, fetch=True):
         conn.close()
     
     return result
+
+
+# db.py 파일 맨 아래에 추가
+# if __name__ == "__main__":
+#     print("--- DB 연결 테스트 시작 ---")
+    
+#     # 1. 단순 쿼리 테스트 (DB 현재 시간 가져오기)
+#     test_sql = "select * from employees"
+#     result = execute_query(test_sql)
+    
+#     if result:
+#         print("✅ 연결 성공!")
+#         print(f"현재 DB 시간: {result[0]}")
+#     else:
+#         print("❌ 연결 실패... 설정을 다시 확인해주세요.")

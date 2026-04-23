@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from route.login import auth_bp  # ← 추가!
 
 app = Flask(__name__)
 
@@ -11,18 +12,7 @@ CORS(app)
 def home():
     return jsonify({"status": "success", "message": "Flask Server is Online!"})
 
-# 리액트에서 로그인 버튼 눌렀을 때 응답할 주소
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.json
-    print(f"리액트에서 보낸 데이터: {data}")
-    
-    # 지금은 테스트용으로 무조건 성공 반환
-    return jsonify({
-        "result": "success",
-        "message": f"{data.get('id')}님, 연결 성공!",
-        "user_name": "은비"
-    })
+app.register_blueprint(auth_bp)  # ← 추가!
 
 if __name__ == '__main__':
     # 5000번 포트로 서버 실행
