@@ -15,8 +15,8 @@ Flask/__pycache__/
 .env
 
 # React (WebUI)
-WebUI/node_modules/
-WebUI/dist/
+React/node_modules/
+React/dist/
 .eslintcache
 
 # 기타
