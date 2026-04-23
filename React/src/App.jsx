@@ -1,17 +1,21 @@
-﻿import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+﻿import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import Login from "./pages/Login";
 import AppManager from './manager/App_manager';
-
+ 
+const App_user = lazy(() => import("./user/App_user"));
+ 
 function App() {
     return (
-        <Router>
+        <BrowserRouter>
             <Routes>
                 <Route path="/" element={<Login />} />
+                <Route path="/user" element={<App_user />} />
                 <Route path="/AppManager" element={<AppManager />} />
-                {/* 나중에 Dashboard 만들면 여기에 추가하면 돼요! */}
             </Routes>
-        </Router>
+        </BrowserRouter>
     );
 }
-
+ 
 export default App;
+ 

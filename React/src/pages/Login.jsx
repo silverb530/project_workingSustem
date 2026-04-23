@@ -24,8 +24,9 @@ const Login = () => {
                     navigate('/AppManager'); // 로그인 성공 시 대시보드로 이동
                 }
                 else {
-                    navigate('/dashboard'); // 로그인 성공 시 대시보드로 이동
+                    navigate('/user'); // 로그인 성공 시 대시보드로 이동
                 }
+               
             }
         } catch (error) {
             if (error.response) {
