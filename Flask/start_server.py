@@ -47,7 +47,7 @@ if __name__ == "__main__":
     )
     time.sleep(1)
 
-    flask_proc = run(['python', 'app.py'], "Flask 서버")
+    flask_proc = run(['python', 'remote.py'], "Flask 서버")
     time.sleep(2)
 
     cf_flask = run(
