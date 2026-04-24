@@ -26,7 +26,7 @@ def app_login():
             data.get("id")
             or data.get("login_id")
             or data.get("email")
-            or data.get("emp_code")
+            or data.get("employee_id")
             or ""
         ).strip()
 
@@ -43,16 +43,22 @@ def app_login():
                 "message": "아이디와 비밀번호를 입력하세요."
             }), 400
 
-        sql = """
-            SELECT *
-            FROM employees
-            WHERE employee_id = %s
-               OR emp_code = %s
-               OR email = %s
-            LIMIT 1
-        """
-
-        user = execute_query(sql, (user_id, user_id, user_id))
+        if user_id.isdigit():
+            sql = """
+                SELECT *
+                FROM employees
+                WHERE employee_id = %s
+                LIMIT 1
+            """
+            user = execute_query(sql, (int(user_id),))
+        else:
+            sql = """
+                SELECT *
+                FROM employees
+                WHERE email = %s
+                LIMIT 1
+            """
+            user = execute_query(sql, (user_id,))
 
         if not user:
             return jsonify({
@@ -79,16 +85,25 @@ def app_login():
             }), 401
 
         employee.pop("password_hash", None)
+
+        if "employee_id" in employee:
+            employee["employee_id"] = str(employee["employee_id"])
+
+        if not employee.get("qr_data"):
+            employee["qr_data"] = f'{{"type":"employee_access","employee_id":"{employee.get("employee_id", "")}"}}'
+
         employee = make_json_safe(employee)
 
         return jsonify({
             "result": "success",
             "success": True,
             "message": "로그인 성공",
-            "user": employee
+            "user": employee,
+            "employee": employee
         }), 200
 
     except Exception as e:
+        print("❌ DB 에러 발생:", e)
         return jsonify({
             "result": "fail",
             "success": False,

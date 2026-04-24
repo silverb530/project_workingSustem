@@ -35,6 +35,58 @@ def register_options():
             conn.close()
 
 
+@app_register_bp.route("/check-duplicate", methods=["GET"])
+@app_register_bp.route("/app/check-duplicate", methods=["GET"])
+def check_duplicate():
+    conn = None
+    try:
+        email = (request.args.get("email") or "").strip()
+
+        if not email:
+            return jsonify({
+                "success": False,
+                "result": "fail",
+                "message": "이메일을 입력하세요."
+            }), 400
+
+        conn = get_conn()
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT employee_id
+                FROM employees
+                WHERE email = %s
+                LIMIT 1
+                """,
+                (email,)
+            )
+
+            if cur.fetchone():
+                return jsonify({
+                    "success": False,
+                    "result": "fail",
+                    "message": "이미 사용 중인 이메일입니다."
+                }), 409
+
+        return jsonify({
+            "success": True,
+            "result": "success",
+            "message": "사용 가능한 이메일입니다."
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "result": "fail",
+            "message": str(e)
+        }), 500
+
+    finally:
+        if conn:
+            conn.close()
+
+
 @app_register_bp.route("/register", methods=["POST"])
 @app_register_bp.route("/app/register", methods=["POST"])
 def register():
@@ -42,7 +94,6 @@ def register():
     try:
         data = request.get_json(silent=True) or {}
 
-        emp_code = (data.get("emp_code") or data.get("employeeCode") or data.get("id") or "").strip()
         name = (data.get("name") or "").strip()
         email = (data.get("email") or "").strip()
         phone = (data.get("phone") or "").strip()
@@ -50,13 +101,6 @@ def register():
         position = (data.get("position") or "").strip()
         role = (data.get("role") or "").strip()
         password = (data.get("password") or data.get("pw") or "").strip()
-
-        if not emp_code:
-            return jsonify({
-                "success": False,
-                "result": "fail",
-                "message": "사번을 입력하세요."
-            }), 400
 
         if not name:
             return jsonify({
@@ -89,28 +133,22 @@ def register():
             if not role:
                 role = "employee"
 
-        qr_data = json.dumps({
-            "type": "employee_access",
-            "emp_code": emp_code
-        }, ensure_ascii=False)
-
         with conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT employee_id
                 FROM employees
-                WHERE emp_code = %s OR email = %s
+                WHERE email = %s
                 LIMIT 1
                 """,
-                (emp_code, email)
+                (email,)
             )
-            exists = cur.fetchone()
 
-            if exists:
+            if cur.fetchone():
                 return jsonify({
                     "success": False,
                     "result": "fail",
-                    "message": "이미 사용 중인 사번 또는 이메일입니다."
+                    "message": "이미 사용 중인 이메일입니다."
                 }), 409
 
             password_hash = generate_password_hash(password)
@@ -119,7 +157,6 @@ def register():
                 """
                 INSERT INTO employees
                 (
-                    emp_code,
                     name,
                     email,
                     phone,
@@ -128,28 +165,39 @@ def register():
                     role,
                     password_hash,
                     is_active,
-                    created_at,
-                    qr_data
+                    created_at
                 )
                 VALUES
                 (
-                    %s, %s, %s, %s, %s, %s, %s, %s, 1, NOW(), %s
+                    %s, %s, %s, %s, %s, %s, %s, 1, NOW()
                 )
                 """,
                 (
-                    emp_code,
                     name,
                     email,
                     phone,
                     department,
                     position,
                     role,
-                    password_hash,
-                    qr_data
+                    password_hash
                 )
             )
 
             new_id = cur.lastrowid
+
+            qr_data = json.dumps({
+                "type": "employee_access",
+                "employee_id": new_id
+            }, ensure_ascii=False)
+
+            cur.execute(
+                """
+                UPDATE employees
+                SET qr_data = %s
+                WHERE employee_id = %s
+                """,
+                (qr_data, new_id)
+            )
 
         conn.commit()
 
