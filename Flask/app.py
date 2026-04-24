@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from route.login import auth_bp
 from App.route.app_login import app_auth_bp
+from App.route.app_register import app_register_bp
 from route.remoteLog import remote_log_bp
 
 app = Flask(__name__)
@@ -17,6 +18,7 @@ def home():
 app.register_blueprint(auth_bp)
 app.register_blueprint(app_auth_bp)
 app.register_blueprint(remote_log_bp)
+app.register_blueprint(app_register_bp)
 
 if __name__ == '__main__':
     # 5000번 포트로 서버 실행
