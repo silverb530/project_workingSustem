@@ -14,6 +14,24 @@ DB_CONFIG = {
 def get_conn():
     return pymysql.connect(**DB_CONFIG)
 
+def get_role_values(conn):
+    sql = """
+        SELECT COLUMN_TYPE
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = %s
+          AND TABLE_NAME = 'employees'
+          AND COLUMN_NAME = 'role'
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (DB_CONFIG["database"],))
+        row = cur.fetchone()
+
+    if not row or not row.get("COLUMN_TYPE"):
+        return []
+
+    column_type = row["COLUMN_TYPE"]
+    return re.findall(r"'([^']+)'", column_type)
+
 def execute_query(sql, params=None, fetch=True):
     """
     모든 쿼리를 처리하는 만능 함수
@@ -42,6 +60,8 @@ def execute_query(sql, params=None, fetch=True):
         conn.close()
     
     return result
+
+
 
 
 # db.py 파일 맨 아래에 추가

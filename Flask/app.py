@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from route.login import auth_bp  # ← 추가!
+from App.route.app_login import app_auth_bp
 
 app = Flask(__name__)
 
@@ -13,7 +14,8 @@ def home():
     return jsonify({"status": "success", "message": "Flask Server is Online!"})
 
 app.register_blueprint(auth_bp)  # ← 추가!
+app.register_blueprint(app_auth_bp) #앱(승민)
 
 if __name__ == '__main__':
     # 5000번 포트로 서버 실행
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", debug=True, port=5000)
