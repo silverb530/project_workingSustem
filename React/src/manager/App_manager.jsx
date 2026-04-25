@@ -6,6 +6,10 @@ import FaceRegisterPage from './manager_pages/FaceRegisterPage.jsx'
 import AttendanceStatusPage from './manager_pages/AttendanceStatusPage.jsx'
 import AttendanceLogPage from './manager_pages/AttendanceLogPage.jsx'
 import UnregisteredFacePage from './manager_pages/UnregisteredFacePage.jsx'
+
+// 은비 얼굴등록 추가
+import RegistFaceRecoPage from './manager_pages/RegistFaceRecoPage.jsx'
+
 import TaskStatusPage from './manager_pages/TaskStatusPage.jsx'
 import TaskAssignPage from './manager_pages/TaskAssignPage.jsx'
 import NoticePage from './manager_pages/NoticePage.jsx'
@@ -275,6 +279,7 @@ function Sidebar({
                 { id: 'attendanceStatus', label: '출퇴근 현황' },
                 { id: 'attendanceLog', label: '출퇴근 기록' },
                 { id: 'unregisteredFace', label: '미등록 인원' },
+                { id: 'registFaceReco', label: '얼굴 인식 등록' },
             ],
         },
         {
@@ -464,12 +469,12 @@ function AppManager() {
         remoteGroup: false,
     })
 
-    const handleToggleGroup = (groupId) => {
-        setOpenGroups((prev) => ({
-            ...prev,
-            [groupId]: !prev[groupId],
-        }))
-    }
+  const handleToggleGroup = (groupId) => {
+    setOpenGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }))
+  }
 
     const renderSection = () => {
         switch (activeSection) {
@@ -485,6 +490,8 @@ function AppManager() {
                 return <AttendanceLogPage />
             case 'unregisteredFace':
                 return <UnregisteredFacePage />
+            case 'registFaceReco':
+                return <RegistFaceRecoPage />
             case 'taskStatus':
                 return <TaskStatusPage />
             case 'taskAssign':

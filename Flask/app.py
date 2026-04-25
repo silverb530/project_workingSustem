@@ -1,6 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-from route.login import auth_bp
+from route.login import auth_bp  # ← 추가!
 from App.route.app_login import app_auth_bp
 from App.route.app_register import app_register_bp
 from route.remoteLog import remote_log_bp
@@ -18,6 +18,10 @@ from route.Manager.chat_room_routes import chat_room_bp #매니저 채팅방
 
 from route.Manager.notice_routes import notice_bp #공지사항
 
+from FaceReco.camera import camera_bp
+from FaceReco.register import register_bp
+from FaceReco.recognize import recognize_bp, load_employees
+from FaceReco.attendance import attendance_bp as face_attendance_bp
 
 app = Flask(__name__)
 
@@ -31,9 +35,9 @@ def home():
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(app_auth_bp)
+app.register_blueprint(app_register_bp)
 app.register_blueprint(remote_log_bp)
 app.register_blueprint(remote_manage_bp)
-app.register_blueprint(app_register_bp)
 app.register_blueprint(chat_bp)
 
 app.register_blueprint(employee_bp)
@@ -42,14 +46,15 @@ app.register_blueprint(dashboard_bp)
 app.register_blueprint(task_bp)
 app.register_blueprint(file_bp)
 app.register_blueprint(chat_room_bp)
+app.register_blueprint(notice_bp)
+app.register_blueprint(Mchat_bp)
 
-app.register_blueprint(notice_bp) # 공지사항 페이지 연결
-
-
-app.register_blueprint(Mchat_bp) #매니져 채팅
-
-
+app.register_blueprint(camera_bp)
+app.register_blueprint(register_bp)
+app.register_blueprint(recognize_bp)
+app.register_blueprint(face_attendance_bp)
+load_employees()
 
 if __name__ == '__main__':
     # 5000번 포트로 서버 실행
-    app.run(host="0.0.0.0", debug=True, port=5000)
+    app.run(host="0.0.0.0", debug=True, port=5000, use_reloader=False)
