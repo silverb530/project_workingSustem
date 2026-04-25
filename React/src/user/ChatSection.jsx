@@ -49,6 +49,7 @@ function ChatSection({ mini = false }) {
   const [allMessages, setAllMessages] = useState({})
   const [teamMembers, setTeamMembers] = useState(FALLBACK_TEAM_MEMBERS)
   const [emojiOpen, setEmojiOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef(null)
   const emojis = ['😊','😂','👍','🎉','❤️','🔥','✅','🚀','💡','📌']
 
