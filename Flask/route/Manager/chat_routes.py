@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from db import get_conn
 from datetime import datetime, date
 
-chat_bp = Blueprint("chat", __name__)
+Mchat_bp = Blueprint("Mchat", __name__)
 
 
 def make_json_safe(data):
@@ -16,8 +16,8 @@ def make_json_safe(data):
         return data
 
 
-@chat_bp.route("/api/chatlogs", methods=["GET"])
-@chat_bp.route("/app/chatlogs", methods=["GET"])
+@Mchat_bp.route("/api/chatlogs", methods=["GET"])
+@Mchat_bp.route("/app/chatlogs", methods=["GET"])
 def get_chatlogs():
     conn = None
     try:
@@ -72,8 +72,8 @@ def get_chatlogs():
             conn.close()
 
 
-@chat_bp.route("/api/chatlogs", methods=["POST"])
-@chat_bp.route("/app/chatlogs", methods=["POST"])
+@Mchat_bp.route("/api/chatlogs", methods=["POST"])
+@Mchat_bp.route("/app/chatlogs", methods=["POST"])
 def create_chatlog():
     conn = None
     try:
@@ -143,8 +143,8 @@ def create_chatlog():
             conn.close()
 
 
-@chat_bp.route("/api/chatlogs/<int:message_id>", methods=["DELETE"])
-@chat_bp.route("/app/chatlogs/<int:message_id>", methods=["DELETE"])
+@Mchat_bp.route("/api/chatlogs/<int:message_id>", methods=["DELETE"])
+@Mchat_bp.route("/app/chatlogs/<int:message_id>", methods=["DELETE"])
 def delete_chatlog(message_id):
     conn = None
     try:
