@@ -4,6 +4,7 @@ from route.login import auth_bp
 from App.route.app_login import app_auth_bp
 from App.route.app_register import app_register_bp
 from route.remoteLog import remote_log_bp
+from route.remote_manage import remote_manage_bp
 
 from route.chat import chat_bp
 
@@ -31,6 +32,7 @@ def home():
 app.register_blueprint(auth_bp)
 app.register_blueprint(app_auth_bp)
 app.register_blueprint(remote_log_bp)
+app.register_blueprint(remote_manage_bp)
 app.register_blueprint(app_register_bp)
 app.register_blueprint(chat_bp)
 

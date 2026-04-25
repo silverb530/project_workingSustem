@@ -12,7 +12,7 @@ const Login = () => {
         e.preventDefault()
 
         try {
-            const response = await axios.post('http://localhost:5000/route/login', {
+            const response = await axios.post('/route/login', {
                 id: id,
                 pw: pw,
             })
@@ -24,6 +24,7 @@ const Login = () => {
 
                 localStorage.removeItem('loginUser')
                 localStorage.setItem('loginUser', JSON.stringify(loginUser))
+                localStorage.setItem('user', JSON.stringify(loginUser))
 
                 alert(`${loginUser.name}님, 환영합니다!`)
 
@@ -68,6 +69,9 @@ const Login = () => {
 
                     <button type="submit">로그인</button>
                 </form>
+                <p style={{ marginTop: 12, fontSize: 13, textAlign: 'center' }}>
+                    계정이 없으신가요? <a href="/register">회원가입</a>
+                </p>
             </div>
         </div>
     )

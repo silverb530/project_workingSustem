@@ -12,6 +12,8 @@ import NoticePage from './manager_pages/NoticePage.jsx'
 import AllChatPage from './manager_pages/AllChatPage.jsx'
 import FileSharePage from './manager_pages/FileSharePage.jsx'
 import AccountManagePage from './manager_pages/AccountManagePage.jsx'
+import RemoteApprovePage from './manager_pages/RemoteApprovePage.jsx'
+import RemoteSessionPage from './manager_pages/RemoteSessionPage.jsx'
 
 function getLoginUser() {
     try {
@@ -301,6 +303,15 @@ function Sidebar({
                 { id: 'fileShare', label: '파일 공유' },
             ],
         },
+        {
+            id: 'remoteGroup',
+            label: '원격 접속 관리',
+            icon: Icons.ScreenShare,
+            items: [
+                { id: 'remoteApprove', label: '접속 승인' },
+                { id: 'remoteSession', label: '접속 현황' },
+            ],
+        },
     ]
 
     const isGroupActive = (group) =>
@@ -450,6 +461,7 @@ function AppManager() {
         taskGroup: true,
         chatNoticeGroup: false,
         fileGroup: false,
+        remoteGroup: false,
     })
 
     const handleToggleGroup = (groupId) => {
@@ -485,6 +497,10 @@ function AppManager() {
                 return <FileSharePage />
             case 'accountManage':
                 return <AccountManagePage />
+            case 'remoteApprove':
+                return <RemoteApprovePage />
+            case 'remoteSession':
+                return <RemoteSessionPage />
             default:
                 return <DashboardPage />
         }
@@ -501,7 +517,7 @@ function AppManager() {
                 onToggleGroup={handleToggleGroup}
             />
 
-            <div className="main-shell">
+            <div className={`main-shell ${sidebarCollapsed ? 'collapsed' : ''}`}>
                 <Header
                     sidebarCollapsed={sidebarCollapsed}
                     onMenuClick={() => setSidebarCollapsed((prev) => !prev)}

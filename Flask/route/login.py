@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
-from db import execute_query
-from werkzeug.security import check_password_hash
+from db import execute_query, get_conn
+from werkzeug.security import check_password_hash, generate_password_hash
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -88,3 +88,55 @@ def login():
         "message": "로그인 성공",
         "user": login_user
     })
+
+
+@auth_bp.route('/route/my-ip', methods=['GET'])
+def get_my_ip():
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    ip = ip.split(',')[0].strip()
+    return jsonify({'ip': ip})
+
+
+@auth_bp.route('/route/register', methods=['POST'])
+def web_register():
+    data       = request.get_json() or {}
+    name       = (data.get('name') or '').strip()
+    email      = (data.get('email') or '').strip()
+    password   = (data.get('password') or '').strip()
+    phone      = (data.get('phone') or '').strip()
+    department = (data.get('department') or '').strip()
+    position   = (data.get('position') or '').strip()
+    pc_name    = (data.get('pc_name') or '').strip()
+    ip_address = (data.get('ip_address') or '').strip()
+
+    if not name or not email or not password or not ip_address:
+        return jsonify({'result': 'fail', 'message': '필수 항목을 모두 입력하세요.'}), 400
+
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT employee_id FROM employees WHERE email = %s LIMIT 1", (email,))
+            if cur.fetchone():
+                return jsonify({'result': 'fail', 'message': '이미 사용 중인 이메일입니다.'}), 409
+
+            password_hash = generate_password_hash(password)
+            cur.execute(
+                "INSERT INTO employees (name, email, phone, department, position, role, password_hash, is_active, created_at) "
+                "VALUES (%s, %s, %s, %s, %s, 'EMPLOYEE', %s, 1, NOW())",
+                (name, email, phone, department, position, password_hash)
+            )
+            employee_id = cur.lastrowid
+
+            cur.execute(
+                "INSERT INTO pc_registry (pc_name, auth_code, ip_address, port, status) VALUES (%s, %s, %s, 5001, 'active')",
+                (pc_name or f"{name}의 PC", str(employee_id), ip_address)
+            )
+
+        conn.commit()
+        return jsonify({'result': 'success', 'employee_id': employee_id})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'result': 'fail', 'message': str(e)}), 500
+    finally:
+        conn.close()
