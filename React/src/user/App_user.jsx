@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useState, useEffect } from 'react'//실시간 때, useEffect를 추가
 import './App_user.css'
 import Sidebar from './Sidebar'
 import Header from './Header'
@@ -15,6 +15,25 @@ import RemoteNode from './RemoteNode'
 function App_user() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activeSection, setActiveSection] = useState('dashboard')
+
+  //실시간 채팅 때, 추가
+  const API_BASE = "http://localhost:5000"; //실시간 채팅 때, 추가
+  const CURRENT_USER_ID = 1; // 임시. 나중에 로그인한 employee_id로 교체
+
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const res = await fetch(`${API_BASE}/api/chat/employees/${CURRENT_USER_ID}`);
+      const data = await res.json();
+
+      if (data.success) {
+        setCurrentUser(data.employee);
+      }
+    };
+
+  fetchCurrentUser();
+}, []); //실시간 채팅 때, 추가
 
   const renderContent = () => {
     switch (activeSection) {
@@ -77,6 +96,7 @@ function App_user() {
       <Header
         sidebarCollapsed={sidebarCollapsed}
         onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        currentUser = {currentUser}
       />
 
       <main className={`main-content ${sidebarCollapsed ? 'collapsed' : ''}`}>

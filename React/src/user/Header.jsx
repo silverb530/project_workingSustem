@@ -1,8 +1,8 @@
 ﻿import { useState } from 'react'
 import Icons from './Icons'
 import Avatar from './Avatar'
-
-function Header({ sidebarCollapsed, onMenuClick }) {
+                                         //실시간 채팅 때, currentUser 추가
+function Header({ sidebarCollapsed, onMenuClick, currentUser }) {
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const notifications = [
@@ -71,11 +71,11 @@ function Header({ sidebarCollapsed, onMenuClick }) {
         <button className="user-profile">
           <Avatar
             src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face"
-            name="홍길동"
+            name={currentUser?.name || "사용자"}
           />
           <div className="user-info">
-            <span className="user-name">홍길동</span>
-            <span className="user-role">프로덕트 리드</span>
+            <span className="user-name">{currentUser?.name || "로딩중..."}</span>
+            <span className="user-role">{currentUser?.position || "직책 없음"}</span>
           </div>
           <Icons.ChevronDown className="sm" />
         </button>
