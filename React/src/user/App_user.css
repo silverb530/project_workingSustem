@@ -1359,3 +1359,227 @@ input {
         grid-template-columns: 1fr;
     }
 }
+
+/* 추가/수정: 채팅방 생성 모달 배경 */
+.chat-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 23, 42, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+/* 추가/수정: 채팅방 생성 모달 본체 */
+.chat-room-modal {
+    width: 420px;
+    max-width: 100%;
+    max-height: 86vh;
+    background: #ffffff;
+    border: 1px solid #dbe1ef;
+    border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* 추가: 모달 헤더 */
+.chat-room-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+    .chat-room-modal-header h3 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 800;
+        color: #111827;
+    }
+
+.modal-close-btn {
+    border: none;
+    background: transparent;
+    font-size: 24px;
+    cursor: pointer;
+    color: #64748b;
+}
+
+/* 추가: 개인/단체 선택 버튼 */
+.room-type-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: #f1f5f9;
+    padding: 5px;
+    border-radius: 12px;
+}
+
+.room-type-tab {
+    border: none;
+    background: transparent;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-weight: 700;
+    color: #64748b;
+    cursor: pointer;
+}
+
+    .room-type-tab.active {
+        background: #5b6fb8;
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(91, 111, 184, 0.25);
+    }
+
+/* 추가: 채팅방 이름 입력 영역 */
+.room-name-box {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+    .room-name-box label {
+        font-size: 13px;
+        font-weight: 700;
+        color: #475569;
+    }
+
+/* 추가: 초대 섹션 제목 */
+.invite-section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #111827;
+}
+
+    .invite-section-title span {
+        font-size: 12px;
+        font-weight: 600;
+        color: #64748b;
+    }
+
+/* 추가/수정: 팀원 목록 */
+.invite-member-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+/* 추가/수정: 팀원 카드 */
+.invite-member-item {
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: 0.15s ease;
+}
+
+    .invite-member-item:hover {
+        background: #f8fafc;
+        border-color: #b8c2e0;
+    }
+
+    .invite-member-item.selected {
+        background: #eef2ff;
+        border-color: #5b6fb8;
+    }
+
+/* 추가: 팀원 이름/직책 */
+.invite-member-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+    .invite-member-info strong {
+        font-size: 14px;
+        color: #111827;
+    }
+
+    .invite-member-info span {
+        font-size: 12px;
+        color: #64748b;
+    }
+
+/* 추가: 선택 체크 표시 */
+.invite-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: #5b6fb8;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 추가/수정: 모달 하단 버튼 */
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* ===============================
+   삭제 버튼 hover 시만 표시
+   =============================== */
+
+/* 채팅방 삭제 X */
+.channel-delete {
+    opacity: 0;
+    visibility: hidden;
+    margin-left: 4px;
+    color: #ef4444;
+    cursor: pointer;
+    transition: 0.15s ease;
+}
+
+/* 채팅방에 마우스 올리면 보이기 */
+.channel-tab:hover .channel-delete {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 메시지 삭제 버튼 */
+.message-delete {
+    opacity: 0;
+    visibility: hidden;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    margin-left: 6px;
+    transition: 0.15s ease;
+}
+
+/* 메시지에 마우스 올리면 보이기 */
+.message:hover .message-delete {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* hover 색상 */
+.message-delete:hover,
+.channel-delete:hover {
+    color: #ef4444;
+}

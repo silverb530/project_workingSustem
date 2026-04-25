@@ -60,7 +60,7 @@ function ChatSection({ mini = false }) {
   const [selectedMemberIds, setSelectedMemberIds] = useState([])
 
   const activeChannel = channels.find(c => c.id === activeChannelId)
-  const messages = allMessages[activeChannel] || []
+  const messages = allMessages[activeChannelId] || []
 
   useEffect(() => {
     if (mini) return
