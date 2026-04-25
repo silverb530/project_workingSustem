@@ -1,108 +1,309 @@
+ï»¿import { useEffect, useState } from 'react'
 import '../App_manager.css'
 
-function PageHeader({ title, description, actionText = 'Ãß°¡' }) {
-  return (
-    <div className="page-header-block">
-      <div>
-        <h1 className="page-title">{title}</h1>
-        <p className="page-description">{description}</p>
-      </div>
-      <button className="btn btn-primary btn-sm">
-        <Icons.Plus className="sm" />
-        {actionText}
-      </button>
-    </div>
-  )
+const API_BASE = 'http://localhost:5000'
+
+async function apiGet(path) {
+    const res = await fetch(`${API_BASE}${path}`)
+    const data = await res.json()
+
+    if (!res.ok) {
+        throw new Error(data.message || `GET ${path} ì‹¤íŒ¨`)
+    }
+
+    return data
 }
 
-function SummaryCards({ cards }) {
-  return (
-    <div className="summary-grid">
-      {cards.map((card) => (
-        <div className="summary-card" key={card.label}>
-          <p className="summary-card-label">{card.label}</p>
-          <p className="summary-card-value">{card.value}</p>
-          <p className="summary-card-sub">{card.sub}</p>
+async function apiPost(path, body = null) {
+    const options = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    }
+
+    if (body !== null) {
+        options.body = JSON.stringify(body)
+    }
+
+    const res = await fetch(`${API_BASE}${path}`, options)
+    const data = await res.json()
+
+    if (!res.ok) {
+        throw new Error(data.message || `${path} ìš”ì²­ ì‹¤íŒ¨`)
+    }
+
+    return data
+}
+
+function getLoginUser() {
+    try {
+        const saved = localStorage.getItem('loginUser')
+        if (!saved) return {}
+
+        const parsed = JSON.parse(saved)
+
+        if (parsed.user) {
+            return parsed.user
+        }
+
+        return parsed
+    } catch {
+        return {}
+    }
+}
+
+function getLoginEmployeeId() {
+    const user = getLoginUser()
+
+    return (
+        user.employee_id ||
+        user.employeeId ||
+        user.id ||
+        1
+    )
+}
+
+const Icons = {
+    Plus: ({ className = '' }) => (
+        <svg
+            className={`icon ${className}`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M5 12h14" />
+            <path d="M12 5v14" />
+        </svg>
+    ),
+}
+
+function PageHeader({ title, description, actionText = 'ì¶”ê°€', onAction }) {
+    return (
+        <div className="page-header-block">
+            <div>
+                <h1 className="page-title">{title}</h1>
+                <p className="page-description">{description}</p>
+            </div>
+
+            <button className="btn btn-primary btn-sm" onClick={onAction}>
+                <Icons.Plus className="sm" />
+                {actionText}
+            </button>
         </div>
-      ))}
-    </div>
-  )
+    )
 }
 
 function InfoCard({ title, desc, children }) {
-  return (
-    <div className="card">
-      <div className="card-header">
-        <div className="card-header-left">
-          <h3>{title}</h3>
-          <p>{desc}</p>
+    return (
+        <div className="card">
+            <div className="card-header">
+                <div className="card-header-left">
+                    <h3>{title}</h3>
+                    <p>{desc}</p>
+                </div>
+            </div>
+
+            <div className="card-content">{children}</div>
         </div>
-      </div>
-      <div className="card-content">{children}</div>
-    </div>
-  )
+    )
 }
 
-function AdminTable({ columns, rows }) {
-  return (
-    <div className="table-wrap">
-      <table className="admin-table">
-        <thead>
-          <tr>
-            {columns.map((col) => (
-              <th key={col}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, idx) => (
-            <tr key={idx}>
-              {row.map((cell, i) => (
-                <td key={i}>{cell}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
+function getPriorityText(priority) {
+    if (priority === 'HIGH') return 'ë†’ìŒ'
+    if (priority === 'MEDIUM') return 'ë³´í†µ'
+    if (priority === 'LOW') return 'ë‚®ìŒ'
+    return priority || '-'
 }
 
-function StatusBadge({ children, tone = 'default' }) {
-  return <span className={`status-badge ${tone}`}>{children}</span>
+function getStatusText(status) {
+    if (status === 'TODO') return 'ëŒ€ê¸°'
+    if (status === 'IN_PROGRESS') return 'ì§„í–‰ì¤‘'
+    if (status === 'DONE') return 'ì™„ë£Œ'
+    if (status === 'HOLD') return 'ë³´ë¥˜'
+    return status || '-'
+}
+
+function normalizeEmployees(data) {
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data.employees)) return data.employees
+    if (Array.isArray(data.data)) return data.data
+    if (Array.isArray(data.result)) return data.result
+    return []
+}
+
+function normalizeTasks(data) {
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data.tasks)) return data.tasks
+    if (Array.isArray(data.data)) return data.data
+    if (Array.isArray(data.result)) return data.result
+    return []
 }
 
 function TaskAssignPage() {
-  return (
-    <>
-      <PageHeader
-        title="¾÷¹« ÇÒ´ç"
-        description="Á÷¿ø¿¡°Ô ¾÷¹«¸¦ »ı¼ºÇÏ°í ¹èÁ¤ÇÏ´Â ÆäÀÌÁöÀÔ´Ï´Ù."
-        actionText="¹èÁ¤ ÀúÀå"
-      />
-      <div className="two-column-layout">
-        <InfoCard title="¾÷¹« »ı¼º" desc="»õ·Î¿î ¾÷¹«¸¦ µî·ÏÇÕ´Ï´Ù.">
-          <div className="form-grid">
-            <input className="admin-input" placeholder="¾÷¹« Á¦¸ñ" />
-            <input className="admin-input" placeholder="´ã´ç ºÎ¼­" />
-            <input className="admin-input" placeholder="´ã´ç Á÷¿ø" />
-            <input className="admin-input" placeholder="¸¶°¨ÀÏ" />
-            <textarea className="admin-textarea" placeholder="¾÷¹« ¼³¸í" />
-          </div>
-        </InfoCard>
+    const [employees, setEmployees] = useState([])
+    const [recentTasks, setRecentTasks] = useState([])
 
-        <InfoCard title="ÃÖ±Ù ¹èÁ¤ ¾÷¹«" desc="ÃÖ±Ù »ı¼ºµÈ ¾÷¹« ¸ñ·ÏÀÔ´Ï´Ù.">
-          <ul className="plain-list">
-            <li>±ÙÅÂ ´ë½Ãº¸µå °³Æí ¡æ ±è¹Î¼ö</li>
-            <li>°øÁö»çÇ× ±ÇÇÑ ¼öÁ¤ ¡æ ¹Ú¼­¿¬</li>
-            <li>ÆÄÀÏ ¾÷·Îµå UI °³¼± ¡æ ÀÌµµÀ±</li>
-            <li>¹Ìµî·Ï ÀÎ¿ø °Ë¼ö ¡æ ÃÖÇÏ¸°</li>
-          </ul>
-        </InfoCard>
-      </div>
-    </>
-  )
+    const [title, setTitle] = useState('')
+    const [description, setDescription] = useState('')
+    const [assignedTo, setAssignedTo] = useState('')
+    const [priority, setPriority] = useState('MEDIUM')
+    const [dueDate, setDueDate] = useState('')
+
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
+    const [message, setMessage] = useState('')
+
+    useEffect(() => {
+        loadEmployees()
+        loadTasks()
+    }, [])
+
+    async function loadEmployees() {
+        try {
+            setError('')
+
+            const data = await apiGet('/api/employees')
+            const list = normalizeEmployees(data)
+
+            setEmployees(list)
+        } catch (err) {
+            setError(err.message)
+            setEmployees([])
+        }
+    }
+
+    async function loadTasks() {
+        try {
+            const data = await apiGet('/api/tasks')
+            const list = normalizeTasks(data)
+
+            setRecentTasks(list)
+        } catch {
+            setRecentTasks([])
+        }
+    }
+
+    async function handleCreateTask() {
+        try {
+            setLoading(true)
+            setError('')
+            setMessage('')
+
+            if (!title.trim()) {
+                setError('ì—…ë¬´ ì œëª©ì„ ì…ë ¥í•˜ì„¸ìš”.')
+                return
+            }
+
+            if (!assignedTo) {
+                setError('ë‹´ë‹¹ ì§ì›ì„ ì„ íƒí•˜ì„¸ìš”.')
+                return
+            }
+
+            const assignedBy = getLoginEmployeeId()
+
+            await apiPost('/api/tasks', {
+                title: title.trim(),
+                description: description.trim(),
+                assigned_to: Number(assignedTo),
+                assigned_by: Number(assignedBy),
+                priority,
+                due_date: dueDate || null,
+            })
+
+            setTitle('')
+            setDescription('')
+            setAssignedTo('')
+            setPriority('MEDIUM')
+            setDueDate('')
+
+            setMessage('ì—…ë¬´ê°€ ë°°ì •ë˜ì—ˆìŠµë‹ˆë‹¤.')
+            await loadTasks()
+        } catch (err) {
+            setError(err.message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    return (
+        <>
+            <PageHeader
+                title="ì—…ë¬´ í• ë‹¹"
+                description="ì§ì›ì—ê²Œ ì—…ë¬´ë¥¼ ìƒì„±í•˜ê³  ë°°ì •í•˜ëŠ” í˜ì´ì§€ì…ë‹ˆë‹¤."
+                actionText={loading ? 'ì €ì¥ ì¤‘...' : 'ë°°ì • ì €ì¥'}
+                onAction={handleCreateTask}
+            />
+
+            {error && <div className="page-error">{error}</div>}
+            {message && <div className="page-success">{message}</div>}
+
+            <div className="two-column-layout">
+                <InfoCard title="ì—…ë¬´ ìƒì„±" desc="ìƒˆë¡œìš´ ì—…ë¬´ë¥¼ ë“±ë¡í•©ë‹ˆë‹¤.">
+                    <div className="form-grid">
+                        <input
+                            className="admin-input"
+                            placeholder="ì—…ë¬´ ì œëª©"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                        />
+
+                        <select
+                            className="admin-input"
+                            value={assignedTo}
+                            onChange={(e) => setAssignedTo(e.target.value)}
+                        >
+                            <option value="">ë‹´ë‹¹ ì§ì› ì„ íƒ</option>
+                            {employees.map((emp) => (
+                                <option key={emp.employee_id} value={emp.employee_id}>
+                                    {emp.name} / {emp.department || '-'} / {emp.position || '-'}
+                                </option>
+                            ))}
+                        </select>
+
+                        <select
+                            className="admin-input"
+                            value={priority}
+                            onChange={(e) => setPriority(e.target.value)}
+                        >
+                            <option value="LOW">ë‚®ìŒ</option>
+                            <option value="MEDIUM">ë³´í†µ</option>
+                            <option value="HIGH">ë†’ìŒ</option>
+                        </select>
+
+                        <input
+                            className="admin-input"
+                            type="date"
+                            value={dueDate}
+                            onChange={(e) => setDueDate(e.target.value)}
+                        />
+
+                        <textarea
+                            className="admin-textarea"
+                            placeholder="ì—…ë¬´ ì„¤ëª…"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                        />
+                    </div>
+                </InfoCard>
+
+                <InfoCard title="ìµœê·¼ ë°°ì • ì—…ë¬´" desc="ìµœê·¼ ìƒì„±ëœ ì—…ë¬´ ëª©ë¡ì…ë‹ˆë‹¤.">
+                    <ul className="plain-list">
+                        {recentTasks.slice(0, 8).map((task) => (
+                            <li key={task.task_id}>
+                                {task.title} â†’ {task.assigned_to_name || 'ë¯¸ì§€ì •'} / {getPriorityText(task.priority)} / {getStatusText(task.status)}
+                            </li>
+                        ))}
+
+                        {recentTasks.length === 0 && (
+                            <li>ìµœê·¼ ë°°ì •ëœ ì—…ë¬´ê°€ ì—†ìŠµë‹ˆë‹¤.</li>
+                        )}
+                    </ul>
+                </InfoCard>
+            </div>
+        </>
+    )
 }
 
 export default TaskAssignPage
-

@@ -1,100 +1,225 @@
+ï»¿import { useEffect, useState } from 'react'
 import '../App_manager.css'
 
-function PageHeader({ title, description, actionText = 'Ãß°¡' }) {
-  return (
-    <div className="page-header-block">
-      <div>
-        <h1 className="page-title">{title}</h1>
-        <p className="page-description">{description}</p>
-      </div>
-      <button className="btn btn-primary btn-sm">
-        <Icons.Plus className="sm" />
-        {actionText}
-      </button>
-    </div>
-  )
+const API_BASE = 'http://localhost:5000'
+
+async function apiGet(path) {
+    const res = await fetch(`${API_BASE}${path}`)
+    const data = await res.json()
+
+    if (!res.ok) {
+        throw new Error(data.message || `GET ${path} ì‹¤íŒ¨`)
+    }
+
+    return data
+}
+
+const Icons = {
+    Plus: ({ className = '' }) => (
+        <svg
+            className={`icon ${className}`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M5 12h14" />
+            <path d="M12 5v14" />
+        </svg>
+    ),
+}
+
+function PageHeader({ title, description, actionText = 'ì¶”ê°€', onAction }) {
+    return (
+        <div className="page-header-block">
+            <div>
+                <h1 className="page-title">{title}</h1>
+                <p className="page-description">{description}</p>
+            </div>
+
+            <button className="btn btn-primary btn-sm" onClick={onAction}>
+                <Icons.Plus className="sm" />
+                {actionText}
+            </button>
+        </div>
+    )
 }
 
 function SummaryCards({ cards }) {
-  return (
-    <div className="summary-grid">
-      {cards.map((card) => (
-        <div className="summary-card" key={card.label}>
-          <p className="summary-card-label">{card.label}</p>
-          <p className="summary-card-value">{card.value}</p>
-          <p className="summary-card-sub">{card.sub}</p>
+    return (
+        <div className="summary-grid">
+            {cards.map((card) => (
+                <div className="summary-card" key={card.label}>
+                    <p className="summary-card-label">{card.label}</p>
+                    <p className="summary-card-value">{card.value}</p>
+                    <p className="summary-card-sub">{card.sub}</p>
+                </div>
+            ))}
         </div>
-      ))}
-    </div>
-  )
+    )
 }
 
 function InfoCard({ title, desc, children }) {
-  return (
-    <div className="card">
-      <div className="card-header">
-        <div className="card-header-left">
-          <h3>{title}</h3>
-          <p>{desc}</p>
+    return (
+        <div className="card">
+            <div className="card-header">
+                <div className="card-header-left">
+                    <h3>{title}</h3>
+                    <p>{desc}</p>
+                </div>
+            </div>
+
+            <div className="card-content">{children}</div>
         </div>
-      </div>
-      <div className="card-content">{children}</div>
-    </div>
-  )
+    )
 }
 
-function AdminTable({ columns, rows }) {
-  return (
-    <div className="table-wrap">
-      <table className="admin-table">
-        <thead>
-          <tr>
-            {columns.map((col) => (
-              <th key={col}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, idx) => (
-            <tr key={idx}>
-              {row.map((cell, i) => (
-                <td key={i}>{cell}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
+function AdminTable({ columns, rows, loading }) {
+    return (
+        <div className="table-wrap">
+            <table className="admin-table">
+                <thead>
+                    <tr>
+                        {columns.map((col) => (
+                            <th key={col}>{col}</th>
+                        ))}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {loading && (
+                        <tr>
+                            <td colSpan={columns.length}>ì¶œí‡´ê·¼ ê¸°ë¡ì„ ë¶ˆëŸ¬ì˜¤ëŠ” ì¤‘ì…ë‹ˆë‹¤.</td>
+                        </tr>
+                    )}
+
+                    {!loading && rows.length === 0 && (
+                        <tr>
+                            <td colSpan={columns.length}>ì¶œí‡´ê·¼ ê¸°ë¡ì´ ì—†ìŠµë‹ˆë‹¤.</td>
+                        </tr>
+                    )}
+
+                    {!loading &&
+                        rows.map((row, idx) => (
+                            <tr key={idx}>
+                                {row.map((cell, i) => (
+                                    <td key={i}>{cell}</td>
+                                ))}
+                            </tr>
+                        ))}
+                </tbody>
+            </table>
+        </div>
+    )
 }
 
 function StatusBadge({ children, tone = 'default' }) {
-  return <span className={`status-badge ${tone}`}>{children}</span>
+    return <span className={`status-badge ${tone}`}>{children}</span>
+}
+
+function getStatusText(status) {
+    if (status === 'PRESENT') return 'ì¶œê·¼'
+    if (status === 'LATE') return 'ì§€ê°'
+    if (status === 'ABSENT') return 'ê²°ê·¼'
+    if (status === 'LEAVE') return 'íœ´ê°€'
+    if (status === 'NORMAL') return 'ì •ìƒ'
+    return status || '-'
+}
+
+function getStatusTone(status) {
+    if (status === 'PRESENT' || status === 'NORMAL') return 'success'
+    if (status === 'LATE') return 'warning'
+    if (status === 'ABSENT') return 'danger'
+    return 'default'
 }
 
 function AttendanceLogPage() {
-  const rows = [
-    ['±è¹Î¼ö', '2026-04-23', '08:57', '18:10', 'Á¤»ó'],
-    ['¹Ú¼­¿¬', '2026-04-23', '09:14', '18:05', 'Áö°¢'],
-    ['ÀÌµµÀ±', '2026-04-23', '-', '-', '°á±Ù'],
-    ['ÃÖÇÏ¸°', '2026-04-23', '08:49', '17:58', 'Á¤»ó'],
-  ]
+    const [attendance, setAttendance] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
 
-  return (
-    <>
-      <PageHeader
-        title="ÃâÅğ±Ù ±â·Ï"
-        description="±â°£º° ÃâÅğ±Ù ÀÌ·Â Á¶È¸ ¹× ´Ù¿î·Îµå°¡ °¡´ÉÇÑ ÆäÀÌÁöÀÔ´Ï´Ù."
-        actionText="±â·Ï ´Ù¿î·Îµå"
-      />
-      <InfoCard title="ÃâÅğ±Ù ÀÌ·Â Å×ÀÌºí" desc="±â°£ Á¶°Ç¿¡ µû¶ó Á¶È¸µÈ ÃâÅğ±Ù ±â·ÏÀÔ´Ï´Ù.">
-        <AdminTable
-          columns={['Á÷¿ø¸í', '³¯Â¥', 'Ãâ±Ù ½Ã°¢', 'Åğ±Ù ½Ã°¢', 'ÆÇÁ¤']}
-          rows={rows}
-        />
-      </InfoCard>
-    </>
-  )
+    useEffect(() => {
+        loadAttendance()
+    }, [])
+
+    async function loadAttendance() {
+        try {
+            setLoading(true)
+            setError('')
+
+            const data = await apiGet('/api/attendance')
+
+            let list = []
+
+            if (Array.isArray(data)) {
+                list = data
+            } else if (Array.isArray(data.attendance)) {
+                list = data.attendance
+            } else if (Array.isArray(data.data)) {
+                list = data.data
+            } else if (Array.isArray(data.result)) {
+                list = data.result
+            }
+
+            setAttendance(list)
+        } catch (err) {
+            setError(err.message)
+            setAttendance([])
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const rows = attendance.map((item) => [
+        item.employee_name || item.name || `ì§ì› ${item.employee_id}`,
+        item.work_date || '-',
+        item.check_in_time || '-',
+        item.check_out_time || '-',
+        <StatusBadge tone={getStatusTone(item.status)}>
+            {getStatusText(item.status)}
+        </StatusBadge>,
+    ])
+
+    const totalCount = attendance.length
+
+    const presentCount = attendance.filter((item) => {
+        return item.status === 'PRESENT' || item.status === 'NORMAL'
+    }).length
+
+    const notCheckedOutCount = attendance.filter((item) => {
+        return item.check_in_time && !item.check_out_time
+    }).length
+
+    return (
+        <>
+            <PageHeader
+                title="ì¶œí‡´ê·¼ ê¸°ë¡"
+                description="ë°ì´í„°ë² ì´ìŠ¤ì— ì €ì¥ëœ ì¶œê·¼, í‡´ê·¼ ê¸°ë¡ì„ ì¡°íšŒí•©ë‹ˆë‹¤."
+                actionText="ìƒˆë¡œê³ ì¹¨"
+                onAction={loadAttendance}
+            />
+
+            <SummaryCards
+                cards={[
+                    { label: 'ì „ì²´ ê¸°ë¡', value: totalCount, sub: 'DB ì €ì¥ ê¸°ë¡ ìˆ˜' },
+                    { label: 'ì¶œê·¼ ê¸°ë¡', value: presentCount, sub: 'PRESENT ìƒíƒœ ê¸°ì¤€' },
+                    { label: 'í‡´ê·¼ ë¯¸ì²˜ë¦¬', value: notCheckedOutCount, sub: 'í‡´ê·¼ ì‹œê°„ì´ ì—†ëŠ” ê¸°ë¡' },
+                ]}
+            />
+
+            {error && <div className="page-error">{error}</div>}
+
+            <InfoCard title="ì¶œí‡´ê·¼ ì´ë ¥ í…Œì´ë¸”" desc="ì§ì›ëª…, ë‚ ì§œ, ì¶œê·¼ ì‹œê°, í‡´ê·¼ ì‹œê°, íŒì •ì„ í‘œì‹œí•©ë‹ˆë‹¤.">
+                <AdminTable
+                    columns={['ì§ì›ëª…', 'ë‚ ì§œ', 'ì¶œê·¼ ì‹œê°', 'í‡´ê·¼ ì‹œê°', 'íŒì •']}
+                    rows={rows}
+                    loading={loading}
+                />
+            </InfoCard>
+        </>
+    )
 }
 
 export default AttendanceLogPage

@@ -1,201 +1,318 @@
-import { useState, useEffect } from 'react'
+Ôªøimport { useState, useEffect } from 'react'
 import '../App_manager.css'
 
-const API_BASE = 'http://192.168.0.116:5000'
-const FILE_BASE = API_BASE
+const API_BASE = 'http://localhost:5000'
 
 async function apiGet(path) {
-  const res = await fetch(`${API_BASE}${path}`)
-  if (!res.ok) throw new Error(`GET ${path} Ω«∆–`)
-  return res.json()
+    const res = await fetch(`${API_BASE}${path}`)
+    const data = await res.json()
+
+    if (!res.ok) {
+        throw new Error(data.message || `GET ${path} Ïã§Ìå®`)
+    }
+
+    return data
 }
 
 async function apiDelete(path) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'DELETE',
-  })
-  const data = await res.json()
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'DELETE',
+    })
 
-  if (!res.ok) {
-    throw new Error(data.message || `${path} ªË¡¶ Ω«∆–`)
-  }
+    const data = await res.json()
 
-  return data
+    if (!res.ok) {
+        throw new Error(data.message || `${path} ÏÇ≠Ï†ú Ïã§Ìå®`)
+    }
+
+    return data
 }
 
 async function apiPost(path, body = null) {
-  const options = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  }
+    const options = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    }
 
-  if (body !== null) {
-    options.body = JSON.stringify(body)
-  }
+    if (body !== null) {
+        options.body = JSON.stringify(body)
+    }
 
-  const res = await fetch(`${API_BASE}${path}`, options)
-  const data = await res.json()
+    const res = await fetch(`${API_BASE}${path}`, options)
+    const data = await res.json()
 
-  if (!res.ok) {
-    throw new Error(data.message || `${path} ø‰√ª Ω«∆–`)
-  }
+    if (!res.ok) {
+        throw new Error(data.message || `${path} ÏöîÏ≤≠ Ïã§Ìå®`)
+    }
 
-  return data
+    return data
 }
 
+async function apiPut(path, body = null) {
+    const options = {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+    }
 
-function PageHeader({ title, description, actionText = '√ﬂ∞°' }) {
-  return (
-    <div className="page-header-block">
-      <div>
-        <h1 className="page-title">{title}</h1>
-        <p className="page-description">{description}</p>
-      </div>
-      <button className="btn btn-primary btn-sm">
-        <Icons.Plus className="sm" />
-        {actionText}
-      </button>
-    </div>
-  )
+    if (body !== null) {
+        options.body = JSON.stringify(body)
+    }
+
+    const res = await fetch(`${API_BASE}${path}`, options)
+    const data = await res.json()
+
+    if (!res.ok) {
+        throw new Error(data.message || `${path} ÏàòÏ†ï Ïã§Ìå®`)
+    }
+
+    return data
 }
 
-function SummaryCards({ cards }) {
-  return (
-    <div className="summary-grid">
-      {cards.map((card) => (
-        <div className="summary-card" key={card.label}>
-          <p className="summary-card-label">{card.label}</p>
-          <p className="summary-card-value">{card.value}</p>
-          <p className="summary-card-sub">{card.sub}</p>
+function PageHeader({ title, description, actionText = 'ÏÉàÎ°úÍ≥†Ïπ®', onAction }) {
+    return (
+        <div className="page-header-block">
+            <div>
+                <h1 className="page-title">{title}</h1>
+                <p className="page-description">{description}</p>
+            </div>
+
+            <button className="btn btn-primary btn-sm" onClick={onAction}>
+                {actionText}
+            </button>
         </div>
-      ))}
-    </div>
-  )
+    )
 }
 
 function InfoCard({ title, desc, children }) {
-  return (
-    <div className="card">
-      <div className="card-header">
-        <div className="card-header-left">
-          <h3>{title}</h3>
-          <p>{desc}</p>
+    return (
+        <div className="card">
+            <div className="card-header">
+                <div className="card-header-left">
+                    <h3>{title}</h3>
+                    <p>{desc}</p>
+                </div>
+            </div>
+            <div className="card-content">{children}</div>
         </div>
-      </div>
-      <div className="card-content">{children}</div>
-    </div>
-  )
-}
-
-function AdminTable({ columns, rows }) {
-  return (
-    <div className="table-wrap">
-      <table className="admin-table">
-        <thead>
-          <tr>
-            {columns.map((col) => (
-              <th key={col}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, idx) => (
-            <tr key={idx}>
-              {row.map((cell, i) => (
-                <td key={i}>{cell}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function StatusBadge({ children, tone = 'default' }) {
-  return <span className={`status-badge ${tone}`}>{children}</span>
+    )
 }
 
 function NoticePage() {
-  const [notices, setNotices] = useState([])
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
+    const [notices, setNotices] = useState([])
+    const [title, setTitle] = useState('')
+    const [content, setContent] = useState('')
+    const [isPinned, setIsPinned] = useState(false)
+    const [editingNoticeId, setEditingNoticeId] = useState(null)
+    const [message, setMessage] = useState('')
+    const [error, setError] = useState('')
+    const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    loadNotices()
-  }, [])
-
-  async function loadNotices() {
-    try {
-      setError('')
-      const data = await apiGet('/api/notices')
-      setNotices(data)
-    } catch (err) {
-      setError(err.message)
+    const getLoginUser = () => {
+        try {
+            const saved = localStorage.getItem('loginUser')
+            if (!saved) return {}
+            return JSON.parse(saved)
+        } catch {
+            return {}
+        }
     }
-  }
 
-  async function handleCreateNotice() {
-    try {
-      setMessage('')
-      setError('')
-      await apiPost('/api/notices', { title, content })
-      setTitle('')
-      setContent('')
-      setMessage('∞¯¡ˆ µÓ∑œ øœ∑·')
-      await loadNotices()
-    } catch (err) {
-      setError(err.message)
+    const loginUser = getLoginUser()
+    const authorId = loginUser.employee_id || loginUser.id || 3
+
+    useEffect(() => {
+        loadNotices()
+    }, [])
+
+    async function loadNotices() {
+        try {
+            setLoading(true)
+            setError('')
+
+            const data = await apiGet('/api/notices')
+
+            if (Array.isArray(data)) {
+                setNotices(data)
+            } else {
+                setNotices(data.notices || [])
+            }
+        } catch (err) {
+            setError(err.message)
+        } finally {
+            setLoading(false)
+        }
     }
-  }
 
-  return (
-    <>
-      <PageHeader
-        title="∞¯¡ˆªÁ«◊"
-        description="∞¯¡ˆ ¿€º∫∞˙ ¡∂»∏∏¶ ºˆ«‡«œ¥¬ ∆‰¿Ã¡ˆ¿‘¥œ¥Ÿ."
-        actionText="ªı∑Œ∞Ìƒß"
-      />
+    function resetForm() {
+        setTitle('')
+        setContent('')
+        setIsPinned(false)
+        setEditingNoticeId(null)
+    }
 
-      <div className="two-column-layout">
-        <InfoCard title="∞¯¡ˆ ¿€º∫" desc="¡¶∏Ò∞˙ ≥ªøÎ¿ª ¿‘∑¬«œººø‰.">
-          <div className="form-grid">
-            <input
-              className="admin-input"
-              placeholder="∞¯¡ˆ ¡¶∏Ò"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+    async function handleCreateOrUpdateNotice() {
+        try {
+            setMessage('')
+            setError('')
+
+            if (!title.trim()) {
+                setError('Í≥µÏßÄ Ï†úÎ™©ÏùÑ ÏûÖÎ†•ÌïòÏÑ∏Ïöî.')
+                return
+            }
+
+            if (!content.trim()) {
+                setError('Í≥µÏßÄ ÎÇ¥Ïö©ÏùÑ ÏûÖÎ†•ÌïòÏÑ∏Ïöî.')
+                return
+            }
+
+            const body = {
+                title,
+                content,
+                author_id: authorId,
+                is_pinned: isPinned,
+            }
+
+            if (editingNoticeId) {
+                await apiPut(`/api/notices/${editingNoticeId}`, body)
+                setMessage('Í≥µÏßÄ ÏàòÏ†ï ÏôÑÎ£å')
+            } else {
+                await apiPost('/api/notices', body)
+                setMessage('Í≥µÏßÄ Îì±Î°ù ÏôÑÎ£å')
+            }
+
+            resetForm()
+            await loadNotices()
+        } catch (err) {
+            setError(err.message)
+        }
+    }
+
+    function handleEdit(notice) {
+        setEditingNoticeId(notice.notice_id)
+        setTitle(notice.title || '')
+        setContent(notice.content || '')
+        setIsPinned(Number(notice.is_pinned) === 1)
+        setMessage('')
+        setError('')
+    }
+
+    async function handleDelete(noticeId) {
+        if (!window.confirm('Í≥µÏßÄÏÇ¨Ìï≠ÏùÑ ÏÇ≠Ï†úÌï†ÍπåÏöî?')) {
+            return
+        }
+
+        try {
+            setMessage('')
+            setError('')
+
+            await apiDelete(`/api/notices/${noticeId}`)
+            setMessage('Í≥µÏßÄ ÏÇ≠Ï†ú ÏôÑÎ£å')
+            await loadNotices()
+        } catch (err) {
+            setError(err.message)
+        }
+    }
+
+    return (
+        <>
+            <PageHeader
+                title="Í≥µÏßÄÏÇ¨Ìï≠"
+                description="Í≥µÏßÄ ÏûëÏÑ±Í≥º Ï°∞ÌöåÎ•º ÏàòÌñâÌïòÎäî ÌéòÏù¥ÏßÄÏûÖÎãàÎã§."
+                actionText="ÏÉàÎ°úÍ≥†Ïπ®"
+                onAction={loadNotices}
             />
-            <textarea
-              className="admin-textarea"
-              placeholder="∞¯¡ˆ ≥ªøÎ"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
-            <button className="btn btn-primary" onClick={handleCreateNotice}>
-              ∞¯¡ˆ µÓ∑œ
-            </button>
-          </div>
-          {message && <div className="page-success">{message}</div>}
-          {error && <div className="page-error">{error}</div>}
-        </InfoCard>
 
-        <InfoCard title="∞¯¡ˆ ∏Ò∑œ" desc="Flask º≠πˆø° ¿˙¿Âµ» ∞¯¡ˆ¿‘¥œ¥Ÿ.">
-          <div className="notice-list">
-            {notices.map((notice) => (
-              <div key={notice.id} className="notice-item">
-                <h4>{notice.title}</h4>
-                <p>{notice.content}</p>
-                <span>{notice.created_at}</span>
-              </div>
-            ))}
-          </div>
-        </InfoCard>
-      </div>
-    </>
-  )
+            <div className="two-column-layout">
+                <InfoCard
+                    title={editingNoticeId ? 'Í≥µÏßÄ ÏàòÏ†ï' : 'Í≥µÏßÄ ÏûëÏÑ±'}
+                    desc="Ï†úÎ™©Í≥º ÎÇ¥Ïö©ÏùÑ ÏûÖÎ†•ÌïòÏÑ∏Ïöî."
+                >
+                    <div className="form-grid">
+                        <input
+                            className="admin-input"
+                            placeholder="Í≥µÏßÄ Ï†úÎ™©"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                        />
+
+                        <textarea
+                            className="admin-textarea"
+                            placeholder="Í≥µÏßÄ ÎÇ¥Ïö©"
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                        />
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+                            <input
+                                type="checkbox"
+                                checked={isPinned}
+                                onChange={(e) => setIsPinned(e.target.checked)}
+                            />
+                            ÏÉÅÎã® Í≥†Ï†ï
+                        </label>
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button className="btn btn-primary" onClick={handleCreateOrUpdateNotice}>
+                                {editingNoticeId ? 'Í≥µÏßÄ ÏàòÏ†ï' : 'Í≥µÏßÄ Îì±Î°ù'}
+                            </button>
+
+                            {editingNoticeId && (
+                                <button className="btn btn-outline" onClick={resetForm}>
+                                    Ï∑®ÏÜå
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {message && <div className="page-success">{message}</div>}
+                    {error && <div className="page-error">{error}</div>}
+                </InfoCard>
+
+                <InfoCard title="Í≥µÏßÄ Î™©Î°ù" desc="Flask ÏÑúÎ≤ÑÏóê Ï†ÄÏû•Îêú Í≥µÏßÄÏûÖÎãàÎã§.">
+                    {loading && <p className="page-description">Î∂àÎü¨Ïò§Îäî Ï§ë...</p>}
+
+                    {!loading && notices.length === 0 && (
+                        <p className="page-description">Îì±Î°ùÎêú Í≥µÏßÄÏÇ¨Ìï≠Ïù¥ ÏóÜÏäµÎãàÎã§.</p>
+                    )}
+
+                    <div className="notice-list">
+                        {notices.map((notice) => (
+                            <div key={notice.notice_id} className="notice-item">
+                                <h4>
+                                    {Number(notice.is_pinned) === 1 ? 'üìå ' : ''}
+                                    {notice.title}
+                                </h4>
+
+                                <p>{notice.content}</p>
+
+                                <span>
+                                    ÏûëÏÑ±Ïûê: {notice.author_name || notice.author_id || '-'}
+                                    {' ¬∑ '}
+                                    ÏûëÏÑ±Ïùº: {notice.created_at || '-'}
+                                </span>
+
+                                <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                                    <button
+                                        className="btn btn-outline btn-sm"
+                                        onClick={() => handleEdit(notice)}
+                                    >
+                                        ÏàòÏ†ï
+                                    </button>
+
+                                    <button
+                                        className="btn btn-destructive btn-sm"
+                                        onClick={() => handleDelete(notice.notice_id)}
+                                    >
+                                        ÏÇ≠Ï†ú
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </InfoCard>
+            </div>
+        </>
+    )
 }
 
 export default NoticePage

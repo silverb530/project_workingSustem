@@ -1,107 +1,206 @@
+ï»¿import { useEffect, useState } from 'react'
 import '../App_manager.css'
 
-function PageHeader({ title, description, actionText = 'Ãß°¡' }) {
-  return (
-    <div className="page-header-block">
-      <div>
-        <h1 className="page-title">{title}</h1>
-        <p className="page-description">{description}</p>
-      </div>
-      <button className="btn btn-primary btn-sm">
-        <Icons.Plus className="sm" />
-        {actionText}
-      </button>
-    </div>
-  )
+const API_BASE = 'http://localhost:5000'
+
+async function apiGet(path) {
+    const res = await fetch(`${API_BASE}${path}`)
+    const data = await res.json()
+
+    if (!res.ok) {
+        throw new Error(data.message || `GET ${path} ì‹¤íŒ¨`)
+    }
+
+    return data
+}
+
+const Icons = {
+    Plus: ({ className = '' }) => (
+        <svg
+            className={`icon ${className}`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M5 12h14" />
+            <path d="M12 5v14" />
+        </svg>
+    ),
+}
+
+function PageHeader({ title, description, actionText = 'ì¶”ê°€', onAction }) {
+    return (
+        <div className="page-header-block">
+            <div>
+                <h1 className="page-title">{title}</h1>
+                <p className="page-description">{description}</p>
+            </div>
+
+            <button className="btn btn-primary btn-sm" onClick={onAction}>
+                <Icons.Plus className="sm" />
+                {actionText}
+            </button>
+        </div>
+    )
 }
 
 function SummaryCards({ cards }) {
-  return (
-    <div className="summary-grid">
-      {cards.map((card) => (
-        <div className="summary-card" key={card.label}>
-          <p className="summary-card-label">{card.label}</p>
-          <p className="summary-card-value">{card.value}</p>
-          <p className="summary-card-sub">{card.sub}</p>
+    return (
+        <div className="summary-grid">
+            {cards.map((card) => (
+                <div className="summary-card" key={card.label}>
+                    <p className="summary-card-label">{card.label}</p>
+                    <p className="summary-card-value">{card.value}</p>
+                    <p className="summary-card-sub">{card.sub}</p>
+                </div>
+            ))}
         </div>
-      ))}
-    </div>
-  )
+    )
 }
 
 function InfoCard({ title, desc, children }) {
-  return (
-    <div className="card">
-      <div className="card-header">
-        <div className="card-header-left">
-          <h3>{title}</h3>
-          <p>{desc}</p>
+    return (
+        <div className="card">
+            <div className="card-header">
+                <div className="card-header-left">
+                    <h3>{title}</h3>
+                    <p>{desc}</p>
+                </div>
+            </div>
+            <div className="card-content">{children}</div>
         </div>
-      </div>
-      <div className="card-content">{children}</div>
-    </div>
-  )
+    )
 }
 
-function AdminTable({ columns, rows }) {
-  return (
-    <div className="table-wrap">
-      <table className="admin-table">
-        <thead>
-          <tr>
-            {columns.map((col) => (
-              <th key={col}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, idx) => (
-            <tr key={idx}>
-              {row.map((cell, i) => (
-                <td key={i}>{cell}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
+function AdminTable({ columns, rows, loading }) {
+    return (
+        <div className="table-wrap">
+            <table className="admin-table">
+                <thead>
+                    <tr>
+                        {columns.map((col) => (
+                            <th key={col}>{col}</th>
+                        ))}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {loading && (
+                        <tr>
+                            <td colSpan={columns.length}>ì§ì› ëª©ë¡ì„ ë¶ˆëŸ¬ì˜¤ëŠ” ì¤‘ì…ë‹ˆë‹¤.</td>
+                        </tr>
+                    )}
+
+                    {!loading && rows.length === 0 && (
+                        <tr>
+                            <td colSpan={columns.length}>ì§ì› ë°ì´í„°ê°€ ì—†ìŠµë‹ˆë‹¤.</td>
+                        </tr>
+                    )}
+
+                    {!loading &&
+                        rows.map((row, idx) => (
+                            <tr key={idx}>
+                                {row.map((cell, i) => (
+                                    <td key={i}>{cell}</td>
+                                ))}
+                            </tr>
+                        ))}
+                </tbody>
+            </table>
+        </div>
+    )
 }
 
 function StatusBadge({ children, tone = 'default' }) {
-  return <span className={`status-badge ${tone}`}>{children}</span>
+    return <span className={`status-badge ${tone}`}>{children}</span>
 }
 
 function EmployeeListPage() {
-  const rows = [
-    ['E-001', '±è¹Î¼ö', '°³¹ßÆÀ', '´ë¸®', 'ÀçÁ÷', 'Á¤»ó'],
-    ['E-002', '¹Ú¼­¿¬', 'ÀÎ»çÆÀ', '»ç¿ø', 'ÀçÁ÷', 'Á¤»ó'],
-    ['E-003', 'ÀÌµµÀ±', 'µğÀÚÀÎÆÀ', '°úÀå', 'ÀçÁ÷', 'ÁÖÀÇ'],
-    ['E-004', 'ÃÖÇÏ¸°', '¿µ¾÷ÆÀ', '»ç¿ø', 'ÈŞÁ÷', 'ÁßÁö'],
-  ]
+    const [employees, setEmployees] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
 
-  return (
-    <>
-      <PageHeader
-        title="Á÷¿ø ¸ñ·Ï"
-        description="Á÷¿ø Á¶È¸, µî·Ï, ¼öÁ¤, »èÁ¦¸¦ ¼öÇàÇÏ´Â °ü¸® ÆäÀÌÁöÀÔ´Ï´Ù."
-        actionText="Á÷¿ø Ãß°¡"
-      />
-      <SummaryCards
-        cards={[
-          { label: 'ÀüÃ¼ Á÷¿ø', value: '128', sub: 'ÀÌ¹ø ´Ş 3¸í Áõ°¡' },
-          { label: 'ÀçÁ÷ Áß', value: '119', sub: 'Á¤»ó ±Ù¹«' },
-          { label: 'ÈŞÁ÷/ºñÈ°¼º', value: '9', sub: '°ü¸® ÇÊ¿ä' },
-        ]}
-      />
-      <InfoCard title="Á÷¿ø °ü¸® Å×ÀÌºí" desc="Á÷¿ø ±âº» Á¤º¸¿Í ÇöÀç »óÅÂ¸¦ Á¶È¸ÇÕ´Ï´Ù.">
-        <AdminTable
-          columns={['»ç¹ø', 'ÀÌ¸§', 'ºÎ¼­', 'Á÷±Ş', 'ÀçÁ÷ »óÅÂ', '°èÁ¤ »óÅÂ']}
-          rows={rows}
-        />
-      </InfoCard>
-    </>
-  )
+    useEffect(() => {
+        loadEmployees()
+    }, [])
+
+    async function loadEmployees() {
+        try {
+            setLoading(true)
+            setError('')
+
+            const data = await apiGet('/api/employees')
+
+            let list = []
+
+            if (Array.isArray(data)) {
+                list = data
+            } else if (Array.isArray(data.employees)) {
+                list = data.employees
+            } else if (Array.isArray(data.data)) {
+                list = data.data
+            } else if (Array.isArray(data.result)) {
+                list = data.result
+            }
+
+            setEmployees(list)
+        } catch (err) {
+            setError(err.message)
+            setEmployees([])
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const rows = employees.map((emp) => [
+        emp.name || '-',
+        emp.department || '-',
+        emp.position || '-',
+    ])
+
+    const departmentCount = new Set(
+        employees
+            .map((emp) => emp.department)
+            .filter((value) => value && value.trim() !== '')
+    ).size
+
+    const positionCount = new Set(
+        employees
+            .map((emp) => emp.position)
+            .filter((value) => value && value.trim() !== '')
+    ).size
+
+    return (
+        <>
+            <PageHeader
+                title="ì§ì› ëª©ë¡"
+                description="ë°ì´í„°ë² ì´ìŠ¤ì— ë“±ë¡ëœ ì§ì›ì˜ ì´ë¦„, ë¶€ì„œ, ì§ê¸‰ì„ ì¡°íšŒí•©ë‹ˆë‹¤."
+                actionText="ìƒˆë¡œê³ ì¹¨"
+                onAction={loadEmployees}
+            />
+
+            <SummaryCards
+                cards={[
+                    { label: 'ì „ì²´ ì§ì›', value: employees.length, sub: 'DB ë“±ë¡ ì§ì› ìˆ˜' },
+                    { label: 'ë¶€ì„œ ìˆ˜', value: departmentCount, sub: 'ë“±ë¡ëœ ë¶€ì„œ ê¸°ì¤€' },
+                    { label: 'ì§ê¸‰ ìˆ˜', value: positionCount, sub: 'ë“±ë¡ëœ ì§ê¸‰ ê¸°ì¤€' },
+                ]}
+            />
+
+            {error && <div className="page-error">{error}</div>}
+
+            <InfoCard title="ì§ì› ëª©ë¡ í…Œì´ë¸”" desc="ì´ë¦„, ë¶€ì„œ, ì§ê¸‰ ì •ë³´ë§Œ í‘œì‹œí•©ë‹ˆë‹¤.">
+                <AdminTable
+                    columns={['ì´ë¦„', 'ë¶€ì„œ', 'ì§ê¸‰']}
+                    rows={rows}
+                    loading={loading}
+                />
+            </InfoCard>
+        </>
+    )
 }
 
 export default EmployeeListPage

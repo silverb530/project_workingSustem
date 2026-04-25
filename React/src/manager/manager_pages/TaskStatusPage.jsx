@@ -1,108 +1,380 @@
+ï»¿import { useEffect, useState } from 'react'
 import '../App_manager.css'
 
-function PageHeader({ title, description, actionText = 'Ãß°¡' }) {
-  return (
-    <div className="page-header-block">
-      <div>
-        <h1 className="page-title">{title}</h1>
-        <p className="page-description">{description}</p>
-      </div>
-      <button className="btn btn-primary btn-sm">
-        <Icons.Plus className="sm" />
-        {actionText}
-      </button>
-    </div>
-  )
+const API_BASE = 'http://localhost:5000'
+
+async function apiGet(path) {
+    const res = await fetch(`${API_BASE}${path}`)
+    const data = await res.json()
+
+    if (!res.ok) {
+        throw new Error(data.message || `GET ${path} ì‹¤íŒ¨`)
+    }
+
+    return data
+}
+
+async function apiPatch(path, body = null) {
+    const options = {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+    }
+
+    if (body !== null) {
+        options.body = JSON.stringify(body)
+    }
+
+    const res = await fetch(`${API_BASE}${path}`, options)
+    const data = await res.json()
+
+    if (!res.ok) {
+        throw new Error(data.message || `${path} ìš”ì²­ ì‹¤íŒ¨`)
+    }
+
+    return data
+}
+
+async function apiDelete(path) {
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'DELETE',
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+        throw new Error(data.message || `${path} ì‚­ì œ ì‹¤íŒ¨`)
+    }
+
+    return data
+}
+
+const Icons = {
+    Plus: ({ className = '' }) => (
+        <svg
+            className={`icon ${className}`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M5 12h14" />
+            <path d="M12 5v14" />
+        </svg>
+    ),
+}
+
+function PageHeader({ title, description, actionText = 'ìƒˆë¡œê³ ì¹¨', onAction }) {
+    return (
+        <div className="page-header-block">
+            <div>
+                <h1 className="page-title">{title}</h1>
+                <p className="page-description">{description}</p>
+            </div>
+
+            <button className="btn btn-primary btn-sm" onClick={onAction}>
+                <Icons.Plus className="sm" />
+                {actionText}
+            </button>
+        </div>
+    )
 }
 
 function SummaryCards({ cards }) {
-  return (
-    <div className="summary-grid">
-      {cards.map((card) => (
-        <div className="summary-card" key={card.label}>
-          <p className="summary-card-label">{card.label}</p>
-          <p className="summary-card-value">{card.value}</p>
-          <p className="summary-card-sub">{card.sub}</p>
+    return (
+        <div className="summary-grid">
+            {cards.map((card) => (
+                <div className="summary-card" key={card.label}>
+                    <p className="summary-card-label">{card.label}</p>
+                    <p className="summary-card-value">{card.value}</p>
+                    <p className="summary-card-sub">{card.sub}</p>
+                </div>
+            ))}
         </div>
-      ))}
-    </div>
-  )
+    )
 }
 
 function InfoCard({ title, desc, children }) {
-  return (
-    <div className="card">
-      <div className="card-header">
-        <div className="card-header-left">
-          <h3>{title}</h3>
-          <p>{desc}</p>
-        </div>
-      </div>
-      <div className="card-content">{children}</div>
-    </div>
-  )
-}
+    return (
+        <div className="card">
+            <div className="card-header">
+                <div className="card-header-left">
+                    <h3>{title}</h3>
+                    <p>{desc}</p>
+                </div>
+            </div>
 
-function AdminTable({ columns, rows }) {
-  return (
-    <div className="table-wrap">
-      <table className="admin-table">
-        <thead>
-          <tr>
-            {columns.map((col) => (
-              <th key={col}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, idx) => (
-            <tr key={idx}>
-              {row.map((cell, i) => (
-                <td key={i}>{cell}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
+            <div className="card-content">{children}</div>
+        </div>
+    )
 }
 
 function StatusBadge({ children, tone = 'default' }) {
-  return <span className={`status-badge ${tone}`}>{children}</span>
+    return <span className={`status-badge ${tone}`}>{children}</span>
+}
+
+function normalizeTasks(data) {
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data.tasks)) return data.tasks
+    if (Array.isArray(data.data)) return data.data
+    if (Array.isArray(data.result)) return data.result
+    return []
+}
+
+function getStatusText(status) {
+    if (status === 'TODO') return 'ëŒ€ê¸°'
+    if (status === 'IN_PROGRESS') return 'ì§„í–‰ì¤‘'
+    if (status === 'DONE') return 'ì™„ë£Œ'
+    if (status === 'HOLD') return 'ë³´ë¥˜'
+
+    if (status === 'todo') return 'ëŒ€ê¸°'
+    if (status === 'in-progress') return 'ì§„í–‰ì¤‘'
+    if (status === 'done') return 'ì™„ë£Œ'
+    if (status === 'hold') return 'ë³´ë¥˜'
+
+    return status || '-'
+}
+
+function getStatusTone(status) {
+    if (status === 'TODO' || status === 'todo') return 'default'
+    if (status === 'IN_PROGRESS' || status === 'in-progress') return 'blue'
+    if (status === 'DONE' || status === 'done') return 'green'
+    if (status === 'HOLD' || status === 'hold') return 'orange'
+
+    return 'default'
+}
+
+function getPriorityText(priority) {
+    if (priority === 'HIGH') return 'ë†’ìŒ'
+    if (priority === 'MEDIUM') return 'ë³´í†µ'
+    if (priority === 'LOW') return 'ë‚®ìŒ'
+
+    if (priority === 'high') return 'ë†’ìŒ'
+    if (priority === 'medium') return 'ë³´í†µ'
+    if (priority === 'low') return 'ë‚®ìŒ'
+
+    return priority || '-'
+}
+
+function getPriorityTone(priority) {
+    if (priority === 'HIGH' || priority === 'high') return 'orange'
+    if (priority === 'MEDIUM' || priority === 'medium') return 'blue'
+    if (priority === 'LOW' || priority === 'low') return 'green'
+
+    return 'default'
+}
+
+function isDelayed(task) {
+    if (!task.due_date) return false
+
+    const today = new Date()
+    const dueDate = new Date(task.due_date)
+
+    today.setHours(0, 0, 0, 0)
+    dueDate.setHours(0, 0, 0, 0)
+
+    const status = task.status
+
+    return dueDate < today && status !== 'DONE' && status !== 'done'
+}
+
+function AdminTable({ tasks, loading, onChangeStatus, onDelete }) {
+    return (
+        <div className="table-wrap">
+            <table className="admin-table">
+                <thead>
+                    <tr>
+                        <th>ì—…ë¬´ëª…</th>
+                        <th>ë‹´ë‹¹ì</th>
+                        <th>ë‹´ë‹¹ ë¶€ì„œ</th>
+                        <th>ìš°ì„ ìˆœìœ„</th>
+                        <th>ìƒíƒœ</th>
+                        <th>ë§ˆê°ì¼</th>
+                        <th>ìƒì„±ì¼</th>
+                        <th>ê´€ë¦¬</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {loading && (
+                        <tr>
+                            <td colSpan="8">ì—…ë¬´ ëª©ë¡ì„ ë¶ˆëŸ¬ì˜¤ëŠ” ì¤‘ì…ë‹ˆë‹¤.</td>
+                        </tr>
+                    )}
+
+                    {!loading && tasks.length === 0 && (
+                        <tr>
+                            <td colSpan="8">ë“±ë¡ëœ ì—…ë¬´ê°€ ì—†ìŠµë‹ˆë‹¤.</td>
+                        </tr>
+                    )}
+
+                    {!loading &&
+                        tasks.map((task) => (
+                            <tr key={task.task_id}>
+                                <td>{task.title || '-'}</td>
+
+                                <td>{task.assigned_to_name || '-'}</td>
+
+                                <td>{task.assigned_to_department || task.department || '-'}</td>
+
+                                <td>
+                                    <StatusBadge tone={getPriorityTone(task.priority)}>
+                                        {getPriorityText(task.priority)}
+                                    </StatusBadge>
+                                </td>
+
+                                <td>
+                                    <StatusBadge tone={getStatusTone(task.status)}>
+                                        {getStatusText(task.status)}
+                                    </StatusBadge>
+                                </td>
+
+                                <td>{task.due_date || '-'}</td>
+
+                                <td>{task.created_at || '-'}</td>
+
+                                <td>
+                                    <div className="table-actions">
+                                        <button
+                                            className="btn btn-outline btn-sm"
+                                            onClick={() => onChangeStatus(task.task_id, 'IN_PROGRESS')}
+                                        >
+                                            ì§„í–‰
+                                        </button>
+
+                                        <button
+                                            className="btn btn-primary btn-sm"
+                                            onClick={() => onChangeStatus(task.task_id, 'DONE')}
+                                        >
+                                            ì™„ë£Œ
+                                        </button>
+
+                                        <button
+                                            className="btn btn-destructive btn-sm"
+                                            onClick={() => onDelete(task.task_id)}
+                                        >
+                                            ì‚­ì œ
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                </tbody>
+            </table>
+        </div>
+    )
 }
 
 function TaskStatusPage() {
-  const rows = [
-    ['È¨ È­¸é °³Æí', 'µğÀÚÀÎÆÀ', <StatusBadge tone="blue">ÁøÇàÁß</StatusBadge>, '2026-04-25'],
-    ['±ÙÅÂ API ¼öÁ¤', '°³¹ßÆÀ', <StatusBadge tone="green">¿Ï·á</StatusBadge>, '2026-04-23'],
-    ['°øÁö °Ô½ÃÆÇ Á¤¸®', '¿î¿µÆÀ', <StatusBadge tone="orange">°ËÅäÁß</StatusBadge>, '2026-04-26'],
-  ]
+    const [tasks, setTasks] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
+    const [message, setMessage] = useState('')
 
-  return (
-    <>
-      <PageHeader
-        title="¾÷¹« ÇöÈ²"
-        description="ÀüÃ¼ ¾÷¹« ÁøÇà ÇöÈ²À» Á¶È¸ÇÏ´Â ÆäÀÌÁöÀÔ´Ï´Ù."
-        actionText="¾÷¹« »ı¼º"
-      />
-      <SummaryCards
-        cards={[
-          { label: 'ÀüÃ¼ ¾÷¹«', value: '42', sub: 'ÀÌ¹ø ÁÖ ±âÁØ' },
-          { label: 'ÁøÇà Áß', value: '16', sub: '¿ì¼±¼øÀ§ Æ÷ÇÔ' },
-          { label: '¿Ï·á', value: '21', sub: '±İÁÖ ´©Àû' },
-          { label: 'Áö¿¬', value: '5', sub: '°ü¸®ÀÚ È®ÀÎ ÇÊ¿ä' },
-        ]}
-      />
-      <InfoCard title="¾÷¹« ÁøÇà ¸ñ·Ï" desc="ºÎ¼­º° ÁÖ¿ä ¾÷¹« »óÅÂÀÔ´Ï´Ù.">
-        <AdminTable
-          columns={['¾÷¹«¸í', '´ã´ç ºÎ¼­', '»óÅÂ', '¸¶°¨ÀÏ']}
-          rows={rows}
-        />
-      </InfoCard>
-    </>
-  )
+    useEffect(() => {
+        loadTasks()
+    }, [])
+
+    async function loadTasks() {
+        try {
+            setLoading(true)
+            setError('')
+            setMessage('')
+
+            const data = await apiGet('/api/tasks')
+            const list = normalizeTasks(data)
+
+            setTasks(list)
+        } catch (err) {
+            setError(err.message)
+            setTasks([])
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    async function handleChangeStatus(taskId, status) {
+        try {
+            setError('')
+            setMessage('')
+
+            await apiPatch(`/api/tasks/${taskId}/status`, {
+                status,
+            })
+
+            setMessage('ì—…ë¬´ ìƒíƒœê°€ ë³€ê²½ë˜ì—ˆìŠµë‹ˆë‹¤.')
+            await loadTasks()
+        } catch (err) {
+            setError(err.message)
+        }
+    }
+
+    async function handleDeleteTask(taskId) {
+        const ok = window.confirm('ì´ ì—…ë¬´ë¥¼ ì‚­ì œí•˜ì‹œê² ìŠµë‹ˆê¹Œ?')
+        if (!ok) return
+
+        try {
+            setError('')
+            setMessage('')
+
+            await apiDelete(`/api/tasks/${taskId}`)
+
+            setMessage('ì—…ë¬´ê°€ ì‚­ì œë˜ì—ˆìŠµë‹ˆë‹¤.')
+            await loadTasks()
+        } catch (err) {
+            setError(err.message)
+        }
+    }
+
+    const totalCount = tasks.length
+
+    const todoCount = tasks.filter((task) => {
+        return task.status === 'TODO' || task.status === 'todo'
+    }).length
+
+    const progressCount = tasks.filter((task) => {
+        return task.status === 'IN_PROGRESS' || task.status === 'in-progress'
+    }).length
+
+    const doneCount = tasks.filter((task) => {
+        return task.status === 'DONE' || task.status === 'done'
+    }).length
+
+    const delayedCount = tasks.filter((task) => isDelayed(task)).length
+
+    return (
+        <>
+            <PageHeader
+                title="ì—…ë¬´ í˜„í™©"
+                description="ì „ì²´ ì—…ë¬´ ì§„í–‰ í˜„í™©ì„ ì¡°íšŒí•˜ê³  ìƒíƒœë¥¼ ê´€ë¦¬í•˜ëŠ” í˜ì´ì§€ì…ë‹ˆë‹¤."
+                actionText="ìƒˆë¡œê³ ì¹¨"
+                onAction={loadTasks}
+            />
+
+            <SummaryCards
+                cards={[
+                    { label: 'ì „ì²´ ì—…ë¬´', value: totalCount, sub: 'DB ë“±ë¡ ì—…ë¬´ ìˆ˜' },
+                    { label: 'ëŒ€ê¸°', value: todoCount, sub: 'ì•„ì§ ì‹œì‘ ì „' },
+                    { label: 'ì§„í–‰ ì¤‘', value: progressCount, sub: 'ì²˜ë¦¬ ì¤‘ì¸ ì—…ë¬´' },
+                    { label: 'ì™„ë£Œ', value: doneCount, sub: 'ì™„ë£Œ ì²˜ë¦¬ë¨' },
+                    { label: 'ì§€ì—°', value: delayedCount, sub: 'ë§ˆê°ì¼ ì´ˆê³¼' },
+                ]}
+            />
+
+            {error && <div className="page-error">{error}</div>}
+            {message && <div className="page-success">{message}</div>}
+
+            <InfoCard title="ì—…ë¬´ ì§„í–‰ ëª©ë¡" desc="ì—…ë¬´ëª…, ë‹´ë‹¹ì, ë¶€ì„œ, ìš°ì„ ìˆœìœ„, ìƒíƒœ, ë§ˆê°ì¼ì„ ì¡°íšŒí•©ë‹ˆë‹¤.">
+                <AdminTable
+                    tasks={tasks}
+                    loading={loading}
+                    onChangeStatus={handleChangeStatus}
+                    onDelete={handleDeleteTask}
+                />
+            </InfoCard>
+        </>
+    )
 }
 
 export default TaskStatusPage
-

@@ -1,4 +1,4 @@
-/* ===============================
+﻿/* ===============================
    CSS Reset & Variables
    =============================== */
 *,
@@ -75,6 +75,31 @@ input {
 
 .content-wrapper {
   padding: 32px;
+}
+
+.admin-layout {
+    min-height: 100vh;
+    background-color: var(--background);
+}
+
+.main-shell {
+    min-height: 100vh;
+    margin-left: var(--sidebar-width);
+    transition: margin-left 0.3s ease;
+}
+
+.sidebar.collapsed + .main-shell {
+    margin-left: var(--sidebar-collapsed);
+}
+
+.content-area {
+    min-height: 100vh;
+    padding: calc(var(--header-height) + 32px) 32px 32px;
+    background-color: var(--background);
+}
+
+.sidebar.collapsed + .main-shell .content-area {
+    padding-top: calc(var(--header-height) + 32px);
 }
 
 /* ===============================
@@ -1709,4 +1734,275 @@ input {
 
 .chat-file-link:hover {
   text-decoration: underline;
+}
+
+.login-page {
+    width: 100%;
+    min-height: 100vh;
+    background: #f5f7fb;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 90px;
+    color: #111827;
+}
+
+.login-card {
+    width: 360px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 32px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    text-align: center;
+}
+
+    .login-card h2 {
+        margin: 0 0 24px;
+        color: #111827;
+        font-size: 24px;
+        font-weight: 700;
+    }
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+    .login-form input {
+        width: 100%;
+        height: 44px;
+        padding: 0 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        background: #ffffff !important;
+        color: #111827 !important;
+        font-size: 15px;
+        outline: none;
+        box-sizing: border-box;
+    }
+
+        .login-form input::placeholder {
+            color: #9ca3af !important;
+        }
+
+        .login-form input:focus {
+            border-color: #6671b7;
+            box-shadow: 0 0 0 3px rgba(102, 113, 183, 0.15);
+        }
+
+    .login-form button {
+        height: 44px;
+        margin-top: 6px;
+        border: none;
+        border-radius: 10px;
+        background: #6671b7;
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+        .login-form button:hover {
+            background: #5863a6;
+        }
+
+.files-grid {
+    width: 100%;
+}
+
+    .files-grid .empty-state {
+        grid-column: 1 / -1;
+        width: 100%;
+        min-height: 160px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        color: #6b7280;
+        font-size: 18px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+.files-list .empty-state {
+    width: 100%;
+    min-height: 140px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: #6b7280;
+    font-size: 18px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.chat-room-member-select {
+    margin: 14px 0;
+    padding: 14px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+}
+
+.chat-room-member-title {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
+}
+
+.chat-room-member-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.chat-room-member-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    color: #374151;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+    .chat-room-member-option:hover {
+        background: #f3f4f6;
+    }
+
+    .chat-room-member-option.disabled {
+        opacity: 0.7;
+        cursor: default;
+    }
+
+.chat-room-manager {
+    padding: 24px;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+.chat-room-create {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+    .chat-room-create .admin-input {
+        flex: 1;
+        height: 48px;
+    }
+
+.chat-room-member-select {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.chat-room-member-title {
+    margin: 0 0 16px;
+    text-align: left;
+    font-size: 18px;
+    font-weight: 800;
+    color: #111827;
+}
+
+.chat-room-member-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.chat-room-member-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+}
+
+    .chat-room-member-option:hover {
+        background: #f3f4f6;
+    }
+
+    .chat-room-member-option input {
+        width: 16px;
+        height: 16px;
+        accent-color: #6670ad;
+    }
+
+    .chat-room-member-option.disabled {
+        opacity: 0.65;
+        cursor: default;
+        background: #f3f4f6;
+    }
+
+.chat-room-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.chat-room-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px 8px 14px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #374151;
+}
+
+    .chat-room-item .btn {
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 10px;
+    }
+
+.chat-messages .empty-state {
+    width: 100%;
+    min-height: 180px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #6b7280;
+    font-size: 17px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .chat-room-member-list {
+        grid-template-columns: 1fr;
+    }
+
+    .chat-room-create {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }
