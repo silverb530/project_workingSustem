@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import Icons from './Icons';
 
-const API = 'http://localhost:5000';
+const API = `http://${window.location.hostname}:5000`;
 
 const STUN = {
     iceServers: [
@@ -24,11 +24,7 @@ function PeerVideo({ peer }) {
         <div style={S.tile}>
             {peer.stream
                 ? <video ref={ref} autoPlay playsInline style={S.video} />
-                : (
-                    <div style={S.noVideo}>
-                        <span style={S.avatarCircle}>{(peer.user_name || '?')[0]}</span>
-                    </div>
-                )
+                : <div style={S.noVideo}><span style={S.avatarCircle}>{(peer.user_name || '?')[0]}</span></div>
             }
             <div style={S.tileName}>{peer.user_name || '참여자'}</div>
         </div>
@@ -38,11 +34,11 @@ function PeerVideo({ peer }) {
 function MeetingRoom({ room, onLeave }) {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-    const [peers, setPeers]           = useState({});
-    const [micOn, setMicOn]           = useState(true);
-    const [camOn, setCamOn]           = useState(true);
-    const [elapsed, setElapsed]       = useState(0);
-    const [socketStatus, setSocketStatus] = useState('connecting'); // connecting | connected | error
+    const [peers, setPeers]               = useState({});
+    const [micOn, setMicOn]               = useState(true);
+    const [camOn, setCamOn]               = useState(true);
+    const [elapsed, setElapsed]           = useState(0);
+    const [socketStatus, setSocketStatus] = useState('connecting');
 
     const localVideoRef  = useRef(null);
     const localStreamRef = useRef(null);
@@ -50,9 +46,7 @@ function MeetingRoom({ room, onLeave }) {
     const peerConnsRef   = useRef({});
     const peerNamesRef   = useRef({});
     const timerRef       = useRef(null);
-    const didInit        = useRef(false);   // StrictMode 이중 실행 방지
 
-    /* ── 피어 커넥션 생성 ── */
     const createPeerConn = (sid) => {
         if (peerConnsRef.current[sid]) return peerConnsRef.current[sid];
 
@@ -96,29 +90,67 @@ function MeetingRoom({ room, onLeave }) {
         });
     };
 
-    /* ── 초기화 ── */
     useEffect(() => {
-        if (didInit.current) return;   // StrictMode 두 번째 실행 차단
-        didInit.current = true;
-
+        let cancelled = false;
         let socket;
 
+        const cleanup = () => {
+            cancelled = true;
+            clearInterval(timerRef.current);
+
+            const sock = socket || socketRef.current;
+            if (sock) {
+                sock.emit('leave-room', { room_id: room.room_id });
+                sock.disconnect();
+            }
+            socketRef.current = null;
+
+            Object.values(peerConnsRef.current).forEach(pc => pc.close());
+            peerConnsRef.current = {};
+            peerNamesRef.current = {};
+            localStreamRef.current?.getTracks().forEach(t => t.stop());
+            localStreamRef.current = null;
+            setPeers({});
+            setSocketStatus('connecting');
+            setElapsed(0);
+        };
+
         const init = async () => {
+            /* 이전 소켓 정리 (StrictMode 이중 마운트 대응) */
+            if (socketRef.current) {
+                socketRef.current.emit('leave-room', { room_id: room.room_id });
+                socketRef.current.disconnect();
+                socketRef.current = null;
+            }
+
+            Object.values(peerConnsRef.current).forEach(pc => pc.close());
+            peerConnsRef.current = {};
+            peerNamesRef.current = {};
+            setPeers({});
+
             /* 카메라 / 마이크 */
+            let stream = null;
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                localStreamRef.current = stream;
-                if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             } catch (err) {
                 console.warn('[MeetingRoom] 카메라/마이크 권한 없음:', err.message);
             }
+
+            /* getUserMedia 대기 중 unmount 됐으면 중단 */
+            if (cancelled) {
+                stream?.getTracks().forEach(t => t.stop());
+                return;
+            }
+
+            localStreamRef.current = stream;
+            if (localVideoRef.current && stream) localVideoRef.current.srcObject = stream;
 
             /* 소켓 연결 */
             socket = io(API, { transports: ['websocket', 'polling'] });
             socketRef.current = socket;
 
             socket.on('connect', () => {
-                console.log('[Socket] 연결됨:', socket.id);
+                if (cancelled) return;
                 setSocketStatus('connected');
                 socket.emit('join-room', {
                     room_id: room.room_id,
@@ -127,37 +159,26 @@ function MeetingRoom({ room, onLeave }) {
                 });
             });
 
-            socket.on('connect_error', (err) => {
-                console.error('[Socket] 연결 실패:', err.message);
-                setSocketStatus('error');
-            });
+            socket.on('connect_error', () => setSocketStatus('error'));
+            socket.on('disconnect',    () => setSocketStatus('connecting'));
 
-            socket.on('disconnect', () => {
-                console.warn('[Socket] 연결 끊김');
-                setSocketStatus('connecting');
-            });
-
-            /* ── 기존 참여자 목록 수신 → 내가 offer 보냄 ── */
             socket.on('room-users', async (users) => {
-                console.log('[Signal] room-users:', users);
+                if (cancelled) return;
                 for (const u of users) {
                     peerNamesRef.current[u.socket_id] = { user_name: u.user_name, user_id: u.user_id };
                     setPeers(prev => ({
                         ...prev,
                         [u.socket_id]: { stream: null, user_name: u.user_name, user_id: u.user_id },
                     }));
-
-                    const pc = createPeerConn(u.socket_id);
+                    const pc    = createPeerConn(u.socket_id);
                     const offer = await pc.createOffer();
                     await pc.setLocalDescription(offer);
                     socket.emit('offer', { to: u.socket_id, offer });
-                    console.log('[Signal] offer 전송 →', u.socket_id);
                 }
             });
 
-            /* ── 새 참여자 알림 ── */
             socket.on('user-joined', ({ socket_id, user_name, user_id }) => {
-                console.log('[Signal] user-joined:', socket_id, user_name);
+                if (cancelled) return;
                 peerNamesRef.current[socket_id] = { user_name, user_id };
                 setPeers(prev => ({
                     ...prev,
@@ -165,42 +186,36 @@ function MeetingRoom({ room, onLeave }) {
                 }));
             });
 
-            /* ── offer 수신 → answer 전송 ── */
             socket.on('offer', async ({ from, offer }) => {
-                console.log('[Signal] offer 수신 ←', from);
+                if (cancelled) return;
                 const info = peerNamesRef.current[from] || {};
-                if (!peerConnsRef.current[from]) {
-                    setPeers(prev => prev[from] ? prev : {
-                        ...prev,
-                        [from]: { stream: null, user_name: info.user_name || '참여자', user_id: info.user_id },
-                    });
-                }
+                setPeers(prev => prev[from] ? prev : {
+                    ...prev,
+                    [from]: { stream: null, user_name: info.user_name || '참여자', user_id: info.user_id },
+                });
                 const pc = createPeerConn(from);
                 await pc.setRemoteDescription(new RTCSessionDescription(offer));
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 socket.emit('answer', { to: from, answer });
-                console.log('[Signal] answer 전송 →', from);
             });
 
-            /* ── answer 수신 ── */
             socket.on('answer', async ({ from, answer }) => {
-                console.log('[Signal] answer 수신 ←', from);
+                if (cancelled) return;
                 const pc = peerConnsRef.current[from];
                 if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
             });
 
-            /* ── ICE candidate ── */
             socket.on('ice-candidate', async ({ from, candidate }) => {
+                if (cancelled) return;
                 const pc = peerConnsRef.current[from];
                 if (pc && candidate) {
                     try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (_) {}
                 }
             });
 
-            /* ── 참여자 퇴장 ── */
             socket.on('user-left', ({ socket_id }) => {
-                console.log('[Signal] user-left:', socket_id);
+                if (cancelled) return;
                 removePeer(socket_id);
             });
         };
@@ -208,18 +223,9 @@ function MeetingRoom({ room, onLeave }) {
         init();
         timerRef.current = setInterval(() => setElapsed(p => p + 1), 1000);
 
-        return () => {
-            clearInterval(timerRef.current);
-            if (socket) {
-                socket.emit('leave-room', { room_id: room.room_id });
-                socket.disconnect();
-            }
-            Object.values(peerConnsRef.current).forEach(pc => pc.close());
-            localStreamRef.current?.getTracks().forEach(t => t.stop());
-        };
+        return cleanup;
     }, []);
 
-    /* ── 마이크 / 카메라 토글 ── */
     const toggleMic = () => {
         localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = !micOn; });
         setMicOn(p => !p);
@@ -232,8 +238,11 @@ function MeetingRoom({ room, onLeave }) {
 
     const handleLeave = () => {
         clearInterval(timerRef.current);
-        socketRef.current?.emit('leave-room', { room_id: room.room_id });
-        socketRef.current?.disconnect();
+        const sock = socketRef.current;
+        if (sock) {
+            sock.emit('leave-room', { room_id: room.room_id });
+            sock.disconnect();
+        }
         Object.values(peerConnsRef.current).forEach(pc => pc.close());
         localStreamRef.current?.getTracks().forEach(t => t.stop());
         onLeave();
@@ -252,13 +261,12 @@ function MeetingRoom({ room, onLeave }) {
     const rows     = Math.ceil(total / cols);
 
     const statusColor = { connecting: '#f59e0b', connected: '#22c55e', error: '#ef4444' };
-    const statusText  = { connecting: '연결 중...', connected: '서버 연결됨', error: '연결 실패 — Flask 서버 확인' };
+    const statusText  = { connecting: '연결 중...', connected: '서버 연결됨', error: '연결 실패' };
 
     return (
         <div style={S.room}>
             <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
 
-            {/* 헤더 */}
             <div style={S.header}>
                 <h2 style={S.title}>{room.title}</h2>
                 <div style={S.liveBadge}>
@@ -271,13 +279,11 @@ function MeetingRoom({ room, onLeave }) {
                 <span style={S.count}>{total}명 참여 중</span>
             </div>
 
-            {/* 비디오 그리드 — 참여자 수에 따라 열·행 자동 조정 */}
             <div style={{
                 ...S.grid,
                 gridTemplateColumns: `repeat(${cols}, 1fr)`,
                 gridTemplateRows:    `repeat(${rows}, 1fr)`,
             }}>
-                {/* 내 화면 */}
                 <div style={S.tile}>
                     <video ref={localVideoRef} autoPlay muted playsInline style={S.video} />
                     {!camOn && (
@@ -288,13 +294,11 @@ function MeetingRoom({ room, onLeave }) {
                     <div style={S.tileName}>{user.name || '나'} (나)</div>
                 </div>
 
-                {/* 상대 화면들 */}
                 {peerList.map(([sid, peer]) => (
                     <PeerVideo key={sid} peer={peer} />
                 ))}
             </div>
 
-            {/* 컨트롤 */}
             <div style={S.controls}>
                 <button style={S.ctrlBtn(micOn)} onClick={toggleMic}>
                     {micOn ? <Icons.Mic /> : <Icons.MicOff />}
@@ -314,23 +318,23 @@ function MeetingRoom({ room, onLeave }) {
 }
 
 const S = {
-    room: { display:'flex', flexDirection:'column', height:'100%', background:'#0d1117', borderRadius:'16px', overflow:'hidden', padding:'20px', gap:'16px' },
-    header: { display:'flex', alignItems:'center', gap:'12px', flexShrink:0, flexWrap:'wrap' },
-    title: { color:'#fff', fontSize:'18px', fontWeight:'700', margin:0 },
-    liveBadge: { display:'flex', alignItems:'center', gap:'6px', background:'#1e2329', border:'1px solid #ef4444', borderRadius:'6px', padding:'4px 10px', color:'#ef4444', fontSize:'12px', fontWeight:'600' },
-    liveDot: { width:'6px', height:'6px', borderRadius:'50%', background:'#ef4444', display:'inline-block', animation:'blink 1.2s ease-in-out infinite' },
+    room:        { display:'flex', flexDirection:'column', height:'100%', background:'#0d1117', borderRadius:'16px', overflow:'hidden', padding:'20px', gap:'16px' },
+    header:      { display:'flex', alignItems:'center', gap:'12px', flexShrink:0, flexWrap:'wrap' },
+    title:       { color:'#fff', fontSize:'18px', fontWeight:'700', margin:0 },
+    liveBadge:   { display:'flex', alignItems:'center', gap:'6px', background:'#1e2329', border:'1px solid #ef4444', borderRadius:'6px', padding:'4px 10px', color:'#ef4444', fontSize:'12px', fontWeight:'600' },
+    liveDot:     { width:'6px', height:'6px', borderRadius:'50%', background:'#ef4444', display:'inline-block', animation:'blink 1.2s ease-in-out infinite' },
     statusBadge: { borderRadius:'6px', padding:'4px 10px', fontSize:'12px', fontWeight:'600' },
-    count: { color:'#8b8fa8', fontSize:'13px', marginLeft:'auto' },
-    grid: { flex:1, display:'grid', gap:'12px', minHeight:0 },
-    tile: { position:'relative', background:'#1e2329', borderRadius:'12px', overflow:'hidden', minHeight:0, minWidth:0 },
-    video: { width:'100%', height:'100%', objectFit:'cover', display:'block' },
-    noVideo: { position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'#1e2329' },
-    avatarCircle: { width:'64px', height:'64px', borderRadius:'50%', background:'#3b82f6', color:'#fff', fontSize:'28px', fontWeight:'700', display:'flex', alignItems:'center', justifyContent:'center', lineHeight:'64px', textAlign:'center' },
-    tileName: { position:'absolute', bottom:'8px', left:'10px', color:'#fff', fontSize:'12px', fontWeight:'600', background:'rgba(0,0,0,0.55)', padding:'2px 8px', borderRadius:'4px' },
-    controls: { display:'flex', justifyContent:'center', gap:'12px', flexShrink:0 },
-    ctrlBtn: (on) => ({ display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', padding:'12px 20px', borderRadius:'10px', border:'none', cursor:'pointer', background: on ? '#1e2329' : '#374151', color: on ? '#fff' : '#9ca3af', transition:'all 0.15s' }),
-    leaveBtn: { display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', padding:'12px 28px', borderRadius:'10px', border:'none', cursor:'pointer', background:'#ef4444', color:'#fff', transition:'all 0.15s' },
-    ctrlLabel: { fontSize:'11px', fontWeight:'600' },
+    count:       { color:'#8b8fa8', fontSize:'13px', marginLeft:'auto' },
+    grid:        { flex:1, display:'grid', gap:'12px', minHeight:0 },
+    tile:        { position:'relative', background:'#1e2329', borderRadius:'12px', overflow:'hidden', minHeight:0, minWidth:0 },
+    video:       { width:'100%', height:'100%', objectFit:'cover', display:'block' },
+    noVideo:     { position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'#1e2329' },
+    avatarCircle:{ width:'64px', height:'64px', borderRadius:'50%', background:'#3b82f6', color:'#fff', fontSize:'28px', fontWeight:'700', display:'flex', alignItems:'center', justifyContent:'center', lineHeight:'64px', textAlign:'center' },
+    tileName:    { position:'absolute', bottom:'8px', left:'10px', color:'#fff', fontSize:'12px', fontWeight:'600', background:'rgba(0,0,0,0.55)', padding:'2px 8px', borderRadius:'4px' },
+    controls:    { display:'flex', justifyContent:'center', gap:'12px', flexShrink:0 },
+    ctrlBtn:     (on) => ({ display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', padding:'12px 20px', borderRadius:'10px', border:'none', cursor:'pointer', background: on ? '#1e2329' : '#374151', color: on ? '#fff' : '#9ca3af', transition:'all 0.15s' }),
+    leaveBtn:    { display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', padding:'12px 28px', borderRadius:'10px', border:'none', cursor:'pointer', background:'#ef4444', color:'#fff', transition:'all 0.15s' },
+    ctrlLabel:   { fontSize:'11px', fontWeight:'600' },
 };
 
 export default MeetingRoom;

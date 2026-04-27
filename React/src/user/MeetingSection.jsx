@@ -1,56 +1,91 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Icons from './Icons';
-import Avatar from './Avatar';
 import Modal from './Modal';
 import MeetingRoom from './MeetingRoom';
 
-const API = 'http://localhost:5000';
+const API = `http://${window.location.hostname}:5000`;
 
 function MeetingSection({ mini = false }) {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-    const [meetings, setMeetings] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [showModal, setShowModal] = useState(false);
-    const [newMeeting, setNewMeeting] = useState({ title: '', scheduled_at: '', duration: '30분' });
+    const [meetings,      setMeetings]      = useState([]);
+    const [loading,       setLoading]       = useState(false);
+    const [listError,     setListError]     = useState('');
+    const [formError,     setFormError]     = useState('');
+    const [showModal,     setShowModal]     = useState(false);
+    const [newMeeting,    setNewMeeting]    = useState({ title: '', scheduled_at: '', duration: '30분' });
     const [activeMeeting, setActiveMeeting] = useState(null);
 
-    const fetchMeetings = async () => {
+    const [employees,   setEmployees]   = useState([]);
+    const [invitedIds,  setInvitedIds]  = useState([]);
+    const [empSearch,   setEmpSearch]   = useState('');
+
+    const fetchMeetings = useCallback(async () => {
+        setListError('');
         try {
-            const res = await fetch(`${API}/api/meetings`);
+            const uid  = user.employee_id ? `?user_id=${user.employee_id}` : '';
+            const res  = await fetch(`${API}/api/meetings${uid}`);
             const data = await res.json();
-            if (data.success) setMeetings(data.meetings);
+            if (data.success) {
+                setMeetings(data.meetings);
+            } else {
+                setListError(data.message || '목록을 불러오지 못했습니다.');
+            }
+        } catch {
+            setListError('서버에 연결할 수 없습니다.');
+        }
+    }, [user.employee_id]);
+
+    useEffect(() => { fetchMeetings(); }, [fetchMeetings]);
+
+    const openModal = async () => {
+        setShowModal(true);
+        setInvitedIds([]);
+        setEmpSearch('');
+        try {
+            const res  = await fetch(`${API}/api/meetings/employees`);
+            const data = await res.json();
+            if (data.success) {
+                setEmployees(data.employees.filter(e => e.employee_id !== user.employee_id));
+            }
         } catch (e) {
-            console.error('회의 목록 조회 실패:', e);
+            console.error('직원 목록 조회 실패:', e);
         }
     };
 
-    useEffect(() => {
-        fetchMeetings();
-    }, []);
+    const toggleInvite = (id) => {
+        setInvitedIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
 
     const addMeeting = async () => {
         if (!newMeeting.title.trim()) return;
         setLoading(true);
+        setFormError('');
         try {
             const res = await fetch(`${API}/api/meetings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: newMeeting.title,
-                    host_id: user.employee_id || 1,
+                    title:        newMeeting.title,
+                    host_id:      user.employee_id || 1,
                     scheduled_at: newMeeting.scheduled_at || null,
-                    duration: newMeeting.duration,
+                    duration:     newMeeting.duration,
+                    invited_ids:  invitedIds,
                 }),
             });
             const data = await res.json();
             if (data.success) {
-                await fetchMeetings();
                 setNewMeeting({ title: '', scheduled_at: '', duration: '30분' });
+                setInvitedIds([]);
                 setShowModal(false);
+                await fetchMeetings();
+            } else {
+                setFormError(data.message || '회의 생성에 실패했습니다.');
             }
-        } catch (e) {
-            console.error('회의 생성 실패:', e);
+        } catch {
+            setFormError('서버에 연결할 수 없습니다.');
         }
         setLoading(false);
     };
@@ -66,9 +101,7 @@ function MeetingSection({ mini = false }) {
         }
     };
 
-    const enterMeeting = (meeting) => {
-        setActiveMeeting(meeting);
-    };
+    const enterMeeting = (meeting) => setActiveMeeting(meeting);
 
     const leaveMeeting = () => {
         setActiveMeeting(null);
@@ -82,15 +115,16 @@ function MeetingSection({ mini = false }) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: '즉석 회의',
-                    host_id: user.employee_id || 1,
-                    duration: '30분',
+                    title:       '즉석 회의',
+                    host_id:     user.employee_id || 1,
+                    duration:    '30분',
+                    invited_ids: [],
                 }),
             });
             const data = await res.json();
             if (data.success) {
                 await fetchMeetings();
-                const res2 = await fetch(`${API}/api/meetings`);
+                const res2  = await fetch(`${API}/api/meetings?user_id=${user.employee_id}`);
                 const data2 = await res2.json();
                 const created = data2.meetings?.find(m => m.room_id === data.room_id);
                 if (created) enterMeeting(created);
@@ -108,7 +142,11 @@ function MeetingSection({ mini = false }) {
         return d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
 
-    // 회의실 진입 시 화상회의 화면
+    const filteredEmployees = employees.filter(e =>
+        e.name.includes(empSearch) ||
+        (e.department || '').includes(empSearch)
+    );
+
     if (activeMeeting && !mini) {
         return (
             <div className="content-wrapper" style={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column' }}>
@@ -133,7 +171,7 @@ function MeetingSection({ mini = false }) {
                         <h3>화상회의</h3>
                         <p>회의 {meetings.length}건</p>
                     </div>
-                    <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
+                    <button className="btn btn-primary btn-sm" onClick={openModal}>
                         <Icons.Plus className="sm" />일정 추가
                     </button>
                 </div>
@@ -147,7 +185,12 @@ function MeetingSection({ mini = false }) {
                         </div>
                     )}
 
-                    {meetings.length === 0 ? (
+                    {listError && (
+                        <div style={{ padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '13px', marginBottom: '8px' }}>
+                            오류: {listError}
+                        </div>
+                    )}
+                    {!listError && meetings.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '32px', color: '#9ca3af', fontSize: '14px' }}>
                             예정된 회의가 없습니다
                         </div>
@@ -176,7 +219,7 @@ function MeetingSection({ mini = false }) {
                                     >
                                         입장
                                     </button>
-                                    {!mini && (
+                                    {!mini && meeting.host_id === user.employee_id && (
                                         <button
                                             className="btn btn-icon btn-ghost sm"
                                             onClick={(e) => deleteMeeting(meeting.room_id, e)}
@@ -208,11 +251,12 @@ function MeetingSection({ mini = false }) {
                         background-repeat: no-repeat; background-position: right 12px center;
                         padding-right: 36px; cursor: pointer;
                     }
+                    .emp-row:hover { background: #f0f7ff !important; }
                 `}</style>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
-                    {/* 섹션 1 : 회의 제목 */}
+                    {/* 섹션 1: 회의 제목 */}
                     <div style={F.section}>
                         <div style={F.sectionHeader}>
                             <span style={F.sectionNum}>1</span>
@@ -229,7 +273,7 @@ function MeetingSection({ mini = false }) {
                         />
                     </div>
 
-                    {/* 섹션 2 : 일정 정보 */}
+                    {/* 섹션 2: 일정 정보 */}
                     <div style={F.section}>
                         <div style={F.sectionHeader}>
                             <span style={F.sectionNum}>2</span>
@@ -264,13 +308,78 @@ function MeetingSection({ mini = false }) {
                         <p style={F.hint}>⏱ 소요 시간은 표시용이며, 시간이 지나도 자동으로 종료되지 않습니다.</p>
                     </div>
 
-                    {/* 안내 */}
-                    <div style={F.infoBox}>
-                        <Icons.Video className="sm" />
-                        <span>회의방이 생성되면 팀원들이 목록에서 바로 입장할 수 있습니다.</span>
+                    {/* 섹션 3: 참여자 초대 */}
+                    <div style={F.section}>
+                        <div style={F.sectionHeader}>
+                            <span style={F.sectionNum}>3</span>
+                            <span style={F.sectionTitle}>참여자 초대</span>
+                            <span style={{ color: '#9ca3af', fontSize: '12px' }}>선택</span>
+                            {invitedIds.length > 0 && (
+                                <span style={F.inviteCount}>{invitedIds.length}명 선택됨</span>
+                            )}
+                        </div>
+
+                        {invitedIds.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {invitedIds.map(id => {
+                                    const emp = employees.find(e => e.employee_id === id);
+                                    return (
+                                        <span
+                                            key={id}
+                                            style={F.inviteTag}
+                                            onClick={() => toggleInvite(id)}
+                                        >
+                                            {emp?.name} ✕
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        <input
+                            className="mtg-input"
+                            placeholder="이름 또는 부서로 검색..."
+                            value={empSearch}
+                            onChange={e => setEmpSearch(e.target.value)}
+                        />
+
+                        <div style={F.empList}>
+                            {filteredEmployees.length === 0 ? (
+                                <div style={{ padding: '16px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>
+                                    {empSearch ? '검색 결과가 없습니다' : '초대할 직원이 없습니다'}
+                                </div>
+                            ) : filteredEmployees.map(emp => {
+                                const selected = invitedIds.includes(emp.employee_id);
+                                return (
+                                    <div
+                                        key={emp.employee_id}
+                                        className="emp-row"
+                                        style={F.empRow(selected)}
+                                        onClick={() => toggleInvite(emp.employee_id)}
+                                    >
+                                        <span style={{ ...F.empAvatar, background: selected ? '#3b82f6' : '#e5e7eb', color: selected ? '#fff' : '#6b7280' }}>
+                                            {emp.name[0]}
+                                        </span>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '13px', fontWeight: '600', color: '#1a1d23' }}>{emp.name}</div>
+                                            <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                                                {[emp.department, emp.position].filter(Boolean).join(' · ')}
+                                            </div>
+                                        </div>
+                                        {selected && (
+                                            <span style={{ color: '#3b82f6', fontSize: '15px', fontWeight: '700' }}>✓</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
 
-                    {/* 버튼 */}
+                    {formError && (
+                        <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '13px' }}>
+                            {formError}
+                        </div>
+                    )}
                     <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '4px' }}>
                         <button style={F.cancelBtn} onClick={() => setShowModal(false)}>취소</button>
                         <button
@@ -278,7 +387,7 @@ function MeetingSection({ mini = false }) {
                             onClick={addMeeting}
                             disabled={loading || !newMeeting.title.trim()}
                         >
-                            {loading ? '생성 중...' : '🎥  회의 만들기'}
+                            {loading ? '생성 중...' : '회의 만들기'}
                         </button>
                     </div>
                 </div>
@@ -315,8 +424,6 @@ const F = {
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
-        lineHeight: '20px',
-        textAlign: 'center',
     },
     sectionTitle: {
         fontSize: '13px',
@@ -335,16 +442,56 @@ const F = {
         color: '#9ca3af',
         lineHeight: '1.5',
     },
-    infoBox: {
+    inviteCount: {
+        background: '#dbeafe',
+        color: '#2563eb',
+        fontSize: '11px',
+        fontWeight: '600',
+        padding: '2px 8px',
+        borderRadius: '12px',
+    },
+    inviteTag: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        background: '#3b82f6',
+        color: '#fff',
+        fontSize: '12px',
+        fontWeight: '600',
+        padding: '4px 10px',
+        borderRadius: '20px',
+        cursor: 'pointer',
+        userSelect: 'none',
+    },
+    empList: {
+        maxHeight: '180px',
+        overflowY: 'auto',
+        border: '1.5px solid #e5e7eb',
+        borderRadius: '8px',
+        background: '#fff',
+    },
+    empRow: (selected) => ({
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        padding: '10px 14px',
-        background: '#eff6ff',
-        border: '1px solid #bfdbfe',
-        borderRadius: '8px',
-        fontSize: '12px',
-        color: '#2563eb',
+        gap: '10px',
+        padding: '10px 12px',
+        cursor: 'pointer',
+        background: selected ? '#eff6ff' : '#fff',
+        borderBottom: '1px solid #f3f4f6',
+        transition: 'background 0.1s',
+        userSelect: 'none',
+    }),
+    empAvatar: {
+        width: '32px',
+        height: '32px',
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '13px',
+        fontWeight: '700',
+        flexShrink: 0,
+        transition: 'all 0.15s',
     },
     cancelBtn: {
         padding: '10px 20px',

@@ -19,6 +19,15 @@ def register_meeting_socket(socketio):
         if room_id not in room_users:
             room_users[room_id] = {}
 
+        # 같은 user_id의 구 소켓 제거 (재입장 / StrictMode 이중 마운트 대응)
+        stale_sids = [
+            s for s, info in room_users[room_id].items()
+            if info.get("user_id") == user_id
+        ]
+        for stale in stale_sids:
+            del room_users[room_id][stale]
+            socketio.emit("user-left", {"socket_id": stale}, room=room_id)
+
         # 이미 방에 있는 사람 목록을 새로 입장한 사람에게 전송
         existing = [
             {"socket_id": s, "user_id": info["user_id"], "user_name": info["user_name"]}
