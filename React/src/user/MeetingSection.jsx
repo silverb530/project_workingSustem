@@ -1,210 +1,373 @@
-﻿import { useState, useRef } from 'react'
-import Icons from './Icons'
-import Avatar from './Avatar'
-import Modal from './Modal'
+import { useState, useEffect } from 'react';
+import Icons from './Icons';
+import Avatar from './Avatar';
+import Modal from './Modal';
+import MeetingRoom from './MeetingRoom';
+
+const API = 'http://localhost:5000';
 
 function MeetingSection({ mini = false }) {
-  const [meetings, setMeetings] = useState([
-    { id: 1, title: '디자인 리뷰', time: '오후 2:00', duration: '45분', participants: [{ name: '김사라', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=32&h=32&fit=crop&crop=face' }, { name: '이민준', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face' }, { name: '박지연', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face' }], isLive: true },
-    { id: 2, title: '스프린트 계획', time: '오후 4:30', duration: '1시간', participants: [{ name: '최민호', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=face' }, { name: '정유진', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=32&h=32&fit=crop&crop=face' }], isLive: false },
-    { id: 3, title: '클라이언트 미팅', time: '내일 오전 10:00', duration: '30분', participants: [{ name: '클라이언트', avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=32&h=32&fit=crop&crop=face' }], isLive: false },
-  ])
-  const [showModal, setShowModal] = useState(false)
-  const [newMeeting, setNewMeeting] = useState({ title: '', time: '', duration: '30분' })
-  const [inMeeting, setInMeeting] = useState(false)
-  const [activeMeetingId, setActiveMeetingId] = useState(null)
-  const [micOn, setMicOn] = useState(true)
-  const [camOn, setCamOn] = useState(true)
-  const [elapsed, setElapsed] = useState(0)
-  const timerRef = useRef(null)
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-  const startMeeting = (meetingId) => {
-    setActiveMeetingId(meetingId)
-    setInMeeting(true)
-    setElapsed(0)
-    timerRef.current = setInterval(() => setElapsed(prev => prev + 1), 1000)
-  }
+    const [meetings, setMeetings] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [newMeeting, setNewMeeting] = useState({ title: '', scheduled_at: '', duration: '30분' });
+    const [activeMeeting, setActiveMeeting] = useState(null);
 
-  const endMeeting = () => {
-    setInMeeting(false)
-    setActiveMeetingId(null)
-    clearInterval(timerRef.current)
-    setElapsed(0)
-  }
+    const fetchMeetings = async () => {
+        try {
+            const res = await fetch(`${API}/api/meetings`);
+            const data = await res.json();
+            if (data.success) setMeetings(data.meetings);
+        } catch (e) {
+            console.error('회의 목록 조회 실패:', e);
+        }
+    };
 
-  const formatTime = (secs) => {
-    const h = Math.floor(secs / 3600).toString().padStart(2,'0')
-    const m = Math.floor((secs % 3600) / 60).toString().padStart(2,'0')
-    const s = (secs % 60).toString().padStart(2,'0')
-    return `${h}:${m}:${s}`
-  }
+    useEffect(() => {
+        fetchMeetings();
+    }, []);
 
-  const addMeeting = () => {
-    if (!newMeeting.title.trim()) return
-    const mtg = {
-      id: Date.now(),
-      title: newMeeting.title,
-      time: newMeeting.time || '미정',
-      duration: newMeeting.duration,
-      participants: [{ name: '홍길동', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face' }],
-      isLive: false,
-    }
-    setMeetings(prev => [...prev, mtg])
-    setNewMeeting({ title: '', time: '', duration: '30분' })
-    setShowModal(false)
-  }
+    const addMeeting = async () => {
+        if (!newMeeting.title.trim()) return;
+        setLoading(true);
+        try {
+            const res = await fetch(`${API}/api/meetings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: newMeeting.title,
+                    host_id: user.employee_id || 1,
+                    scheduled_at: newMeeting.scheduled_at || null,
+                    duration: newMeeting.duration,
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                await fetchMeetings();
+                setNewMeeting({ title: '', scheduled_at: '', duration: '30분' });
+                setShowModal(false);
+            }
+        } catch (e) {
+            console.error('회의 생성 실패:', e);
+        }
+        setLoading(false);
+    };
 
-  const deleteMeeting = (id) => {
-    setMeetings(prev => prev.filter(m => m.id !== id))
-  }
+    const deleteMeeting = async (roomId, e) => {
+        e.stopPropagation();
+        if (!window.confirm('이 회의를 삭제할까요?')) return;
+        try {
+            await fetch(`${API}/api/meetings/${roomId}`, { method: 'DELETE' });
+            setMeetings(prev => prev.filter(m => m.room_id !== roomId));
+        } catch (e) {
+            console.error('회의 삭제 실패:', e);
+        }
+    };
 
-  const liveMeeting = meetings.find(m => m.isLive)
-  const otherMeetings = meetings.filter(m => !m.isLive)
+    const enterMeeting = (meeting) => {
+        setActiveMeeting(meeting);
+    };
 
-  // In-meeting view
-  if (inMeeting && !mini) {
-    const mtg = meetings.find(m => m.id === activeMeetingId)
-    return (
-      <div className="content-wrapper">
-        <div className="meeting-room">
-          <div className="meeting-room-header">
-            <h2>{mtg?.title || '즉석 회의'}</h2>
-            <div className="live-badge"><div className="live-dot" /><span>진행 중 {formatTime(elapsed)}</span></div>
-          </div>
-          <div className="video-grid">
-            {[{ name: '홍길동 (나)', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face' }, ...(mtg?.participants || [])].map((p, i) => (
-              <div key={i} className="video-tile">
-                <div className="video-avatar-placeholder">
-                  <Avatar src={p.avatar} name={p.name} size="lg" />
-                </div>
-                <div className="video-name">{p.name}</div>
-              </div>
-            ))}
-          </div>
-          <div className="meeting-controls">
-            <button className={`control-btn ${!micOn ? 'off' : ''}`} onClick={() => setMicOn(!micOn)} title={micOn ? '마이크 끄기' : '마이크 켜기'}>
-              {micOn ? <Icons.Mic /> : <Icons.MicOff />}
-              <span>{micOn ? '음소거' : '음소거 해제'}</span>
-            </button>
-            <button className={`control-btn ${!camOn ? 'off' : ''}`} onClick={() => setCamOn(!camOn)} title={camOn ? '카메라 끄기' : '카메라 켜기'}>
-              {camOn ? <Icons.Video /> : <Icons.VideoOff />}
-              <span>{camOn ? '화면 끄기' : '화면 켜기'}</span>
-            </button>
-            <button className="control-btn" title="화면 공유">
-              <Icons.ScreenShare />
-              <span>화면 공유</span>
-            </button>
-            <button className="control-btn end-call" onClick={endMeeting}>
-              <Icons.Phone />
-              <span>나가기</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+    const leaveMeeting = () => {
+        setActiveMeeting(null);
+        fetchMeetings();
+    };
 
-  return (
-    <div className={mini ? 'card' : 'content-wrapper'}>
-      {!mini && <div className="welcome-section"><h1>화상회의</h1><p>언제든지 팀원들과 연결하세요.</p></div>}
-      <div className="card">
-        <div className="card-header">
-          <div className="card-header-left">
-            <h3>화상회의</h3>
-            <p>회의 {meetings.length}건 예정</p>
-          </div>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
-            <Icons.Plus className="sm" />일정 추가
-          </button>
-        </div>
-        <div className="card-content">
-          <div className="meeting-actions">
-            <button className="btn btn-outline" onClick={() => startMeeting(null)}>
-              <Icons.Video className="sm" />즉석 회의 시작
-            </button>
-            <button className="btn btn-outline btn-icon"><Icons.Phone className="sm" /></button>
-          </div>
+    const startInstant = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch(`${API}/api/meetings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: '즉석 회의',
+                    host_id: user.employee_id || 1,
+                    duration: '30분',
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                await fetchMeetings();
+                const res2 = await fetch(`${API}/api/meetings`);
+                const data2 = await res2.json();
+                const created = data2.meetings?.find(m => m.room_id === data.room_id);
+                if (created) enterMeeting(created);
+            }
+        } catch (e) {
+            console.error('즉석 회의 생성 실패:', e);
+        }
+        setLoading(false);
+    };
 
-          {liveMeeting && (
-            <div className="live-meeting">
-              <div className="live-meeting-content">
-                <div className="live-meeting-header">
-                  <div className="live-badge"><div className="live-dot" /><span>진행 중</span></div>
-                  <span className="live-duration">{formatTime(elapsed)}</span>
-                </div>
-                <h4 className="live-meeting-title">{liveMeeting.title}</h4>
-                <div className="live-meeting-footer">
-                  <div className="live-participants">
-                    {liveMeeting.participants.map((p, i) => <Avatar key={i} src={p.avatar} name={p.name} size="sm" />)}
-                  </div>
-                  <div className="live-controls">
-                    <button className={`live-control-btn ${!micOn?'off':''}`} onClick={() => setMicOn(!micOn)}>{micOn ? <Icons.Mic className="sm" /> : <Icons.MicOff className="sm" />}</button>
-                    <button className={`live-control-btn ${!camOn?'off':''}`} onClick={() => setCamOn(!camOn)}>{camOn ? <Icons.Video className="sm" /> : <Icons.VideoOff className="sm" />}</button>
-                    <button className="live-control-btn"><Icons.ScreenShare className="sm" /></button>
-                    {inMeeting && activeMeetingId === liveMeeting.id
-                      ? <button className="btn btn-destructive btn-sm" onClick={endMeeting}>나가기</button>
-                      : <button className="btn btn-primary btn-sm" onClick={() => startMeeting(liveMeeting.id)}>입장</button>
-                    }
-                  </div>
-                </div>
-              </div>
+    const fmtTime = (scheduled_at) => {
+        if (!scheduled_at) return '미정';
+        const d = new Date(scheduled_at);
+        if (isNaN(d)) return scheduled_at;
+        return d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+
+    // 회의실 진입 시 화상회의 화면
+    if (activeMeeting && !mini) {
+        return (
+            <div className="content-wrapper" style={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column' }}>
+                <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
+                <MeetingRoom room={activeMeeting} onLeave={leaveMeeting} />
             </div>
-          )}
+        );
+    }
 
-          <div className="meeting-list">
-            {otherMeetings.map((meeting) => (
-              <div key={meeting.id} className="meeting-item">
-                <div className="meeting-icon-wrapper"><Icons.Calendar /></div>
-                <div className="meeting-content">
-                  <p className="meeting-title">{meeting.title}</p>
-                  <div className="meeting-time">
-                    <Icons.Clock className="sm" />
-                    <span>{meeting.time}</span>
-                    <span>-</span>
-                    <span>{meeting.duration}</span>
-                  </div>
+    return (
+        <div className={mini ? 'card' : 'content-wrapper'}>
+            {!mini && (
+                <div className="welcome-section">
+                    <h1>화상회의</h1>
+                    <p>언제든지 팀원들과 연결하세요.</p>
                 </div>
-                <div className="meeting-participants">
-                  {meeting.participants.slice(0, 3).map((p, i) => <Avatar key={i} src={p.avatar} name={p.name} size="sm" />)}
-                </div>
-                <button className="btn btn-outline btn-sm meeting-join" onClick={() => startMeeting(meeting.id)}>입장</button>
-                {!mini && (
-                  <button className="btn btn-icon btn-ghost sm" onClick={() => deleteMeeting(meeting.id)}><Icons.Trash className="sm" /></button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+            )}
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="회의 일정 추가">
-        <div className="form-group">
-          <label>회의 제목 *</label>
-          <input className="form-input" placeholder="회의 제목을 입력하세요" value={newMeeting.title} onChange={e => setNewMeeting({...newMeeting, title: e.target.value})} />
+            <div className="card">
+                <div className="card-header">
+                    <div className="card-header-left">
+                        <h3>화상회의</h3>
+                        <p>회의 {meetings.length}건</p>
+                    </div>
+                    <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
+                        <Icons.Plus className="sm" />일정 추가
+                    </button>
+                </div>
+
+                <div className="card-content">
+                    {!mini && (
+                        <div className="meeting-actions">
+                            <button className="btn btn-outline" onClick={startInstant} disabled={loading}>
+                                <Icons.Video className="sm" />즉석 회의 시작
+                            </button>
+                        </div>
+                    )}
+
+                    {meetings.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '32px', color: '#9ca3af', fontSize: '14px' }}>
+                            예정된 회의가 없습니다
+                        </div>
+                    ) : (
+                        <div className="meeting-list">
+                            {meetings.map((meeting) => (
+                                <div key={meeting.room_id} className="meeting-item">
+                                    <div className="meeting-icon-wrapper">
+                                        <Icons.Video />
+                                    </div>
+                                    <div className="meeting-content">
+                                        <p className="meeting-title">{meeting.title}</p>
+                                        <div className="meeting-time">
+                                            <Icons.Clock className="sm" />
+                                            <span>{fmtTime(meeting.scheduled_at)}</span>
+                                            <span>-</span>
+                                            <span>{meeting.duration}</span>
+                                            {meeting.host_name && (
+                                                <span style={{ color: '#8b8fa8' }}>· {meeting.host_name}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <button
+                                        className="btn btn-primary btn-sm meeting-join"
+                                        onClick={() => enterMeeting(meeting)}
+                                    >
+                                        입장
+                                    </button>
+                                    {!mini && (
+                                        <button
+                                            className="btn btn-icon btn-ghost sm"
+                                            onClick={(e) => deleteMeeting(meeting.room_id, e)}
+                                        >
+                                            <Icons.Trash className="sm" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="회의 일정 추가">
+                <style>{`
+                    .mtg-input {
+                        width: 100%; padding: 11px 14px;
+                        border: 1.5px solid #e5e7eb; border-radius: 10px;
+                        font-size: 14px; color: #1a1d23; background: #f9fafb;
+                        outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+                        box-sizing: border-box; font-family: inherit;
+                    }
+                    .mtg-input:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+                    .mtg-input::placeholder { color: #b0b5c3; }
+                    .mtg-select {
+                        appearance: none;
+                        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+                        background-repeat: no-repeat; background-position: right 12px center;
+                        padding-right: 36px; cursor: pointer;
+                    }
+                `}</style>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                    {/* 섹션 1 : 회의 제목 */}
+                    <div style={F.section}>
+                        <div style={F.sectionHeader}>
+                            <span style={F.sectionNum}>1</span>
+                            <span style={F.sectionTitle}>회의 제목</span>
+                            <span style={{ color: '#ef4444', fontSize: '12px' }}>필수</span>
+                        </div>
+                        <input
+                            className="mtg-input"
+                            placeholder="예: 주간 팀 미팅, 프로젝트 리뷰..."
+                            value={newMeeting.title}
+                            onChange={e => setNewMeeting({ ...newMeeting, title: e.target.value })}
+                            onKeyDown={e => e.key === 'Enter' && addMeeting()}
+                            autoFocus
+                        />
+                    </div>
+
+                    {/* 섹션 2 : 일정 정보 */}
+                    <div style={F.section}>
+                        <div style={F.sectionHeader}>
+                            <span style={F.sectionNum}>2</span>
+                            <span style={F.sectionTitle}>일정 정보</span>
+                            <span style={{ color: '#9ca3af', fontSize: '12px' }}>선택</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                <label style={F.label}>날짜 / 시간</label>
+                                <input
+                                    className="mtg-input"
+                                    type="datetime-local"
+                                    value={newMeeting.scheduled_at}
+                                    onChange={e => setNewMeeting({ ...newMeeting, scheduled_at: e.target.value })}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                <label style={F.label}>소요 시간 <span style={{ color:'#9ca3af', fontWeight:400 }}>(참고용)</span></label>
+                                <select
+                                    className="mtg-input mtg-select"
+                                    value={newMeeting.duration}
+                                    onChange={e => setNewMeeting({ ...newMeeting, duration: e.target.value })}
+                                >
+                                    <option>15분</option>
+                                    <option>30분</option>
+                                    <option>45분</option>
+                                    <option>1시간</option>
+                                    <option>2시간</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p style={F.hint}>⏱ 소요 시간은 표시용이며, 시간이 지나도 자동으로 종료되지 않습니다.</p>
+                    </div>
+
+                    {/* 안내 */}
+                    <div style={F.infoBox}>
+                        <Icons.Video className="sm" />
+                        <span>회의방이 생성되면 팀원들이 목록에서 바로 입장할 수 있습니다.</span>
+                    </div>
+
+                    {/* 버튼 */}
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '4px' }}>
+                        <button style={F.cancelBtn} onClick={() => setShowModal(false)}>취소</button>
+                        <button
+                            style={F.submitBtn(loading || !newMeeting.title.trim())}
+                            onClick={addMeeting}
+                            disabled={loading || !newMeeting.title.trim()}
+                        >
+                            {loading ? '생성 중...' : '🎥  회의 만들기'}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label>시간</label>
-            <input className="form-input" type="datetime-local" value={newMeeting.time} onChange={e => setNewMeeting({...newMeeting, time: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label>소요 시간</label>
-            <select className="form-input" value={newMeeting.duration} onChange={e => setNewMeeting({...newMeeting, duration: e.target.value})}>
-              <option>15분</option>
-              <option>30분</option>
-              <option>45분</option>
-              <option>1시간</option>
-              <option>2시간</option>
-            </select>
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-outline" onClick={() => setShowModal(false)}>취소</button>
-          <button className="btn btn-primary" onClick={addMeeting}>추가</button>
-        </div>
-      </Modal>
-    </div>
-  )
+    );
 }
 
-export default MeetingSection
+const F = {
+    section: {
+        background: '#f8fafc',
+        border: '1.5px solid #e9edf3',
+        borderRadius: '12px',
+        padding: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+    },
+    sectionHeader: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '2px',
+    },
+    sectionNum: {
+        width: '20px',
+        height: '20px',
+        borderRadius: '50%',
+        background: '#3b82f6',
+        color: '#fff',
+        fontSize: '11px',
+        fontWeight: '700',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        lineHeight: '20px',
+        textAlign: 'center',
+    },
+    sectionTitle: {
+        fontSize: '13px',
+        fontWeight: '700',
+        color: '#1a1d23',
+        flex: 1,
+    },
+    label: {
+        fontSize: '12px',
+        fontWeight: '600',
+        color: '#6b7280',
+    },
+    hint: {
+        margin: 0,
+        fontSize: '11px',
+        color: '#9ca3af',
+        lineHeight: '1.5',
+    },
+    infoBox: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '10px 14px',
+        background: '#eff6ff',
+        border: '1px solid #bfdbfe',
+        borderRadius: '8px',
+        fontSize: '12px',
+        color: '#2563eb',
+    },
+    cancelBtn: {
+        padding: '10px 20px',
+        borderRadius: '8px',
+        border: '1.5px solid #e5e7eb',
+        background: '#fff',
+        color: '#374151',
+        fontSize: '13px',
+        fontWeight: '600',
+        cursor: 'pointer',
+    },
+    submitBtn: (disabled) => ({
+        padding: '10px 22px',
+        borderRadius: '8px',
+        border: 'none',
+        background: disabled ? '#e5e7eb' : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+        color: disabled ? '#9ca3af' : '#fff',
+        fontSize: '13px',
+        fontWeight: '700',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        boxShadow: disabled ? 'none' : '0 4px 12px rgba(59,130,246,0.3)',
+        transition: 'all 0.15s',
+    }),
+};
+
+export default MeetingSection;

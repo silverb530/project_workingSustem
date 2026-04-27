@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from route.login import auth_bp  # ← 추가!
 from App.route.app_login import app_auth_bp
 from App.route.app_register import app_register_bp
@@ -17,6 +18,7 @@ from route.Manager.file_routes import file_bp #매니저 파일업로드
 from route.Manager.chat_room_routes import chat_room_bp #매니저 채팅방
 
 from route.Manager.notice_routes import notice_bp #공지사항
+from route.meeting import meeting_bp
 
 from FaceReco.camera import camera_bp
 from FaceReco.register import register_bp
@@ -27,6 +29,7 @@ app = Flask(__name__)
 
 # [중요] 리액트(5173포트)와의 통신을 허용합니다.
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # 서버가 잘 돌아가는지 확인하는 기본 주소
 @app.route('/')
@@ -48,6 +51,7 @@ app.register_blueprint(file_bp)
 app.register_blueprint(chat_room_bp)
 app.register_blueprint(notice_bp)
 app.register_blueprint(Mchat_bp)
+app.register_blueprint(meeting_bp)
 
 app.register_blueprint(camera_bp)
 app.register_blueprint(register_bp)
@@ -55,6 +59,8 @@ app.register_blueprint(recognize_bp)
 app.register_blueprint(face_attendance_bp)
 load_employees()
 
+from meeting_socket import register_meeting_socket
+register_meeting_socket(socketio)
+
 if __name__ == '__main__':
-    # 5000번 포트로 서버 실행
-    app.run(host="0.0.0.0", debug=True, port=5000, use_reloader=False)
+    socketio.run(app, host="0.0.0.0", debug=True, port=5000, allow_unsafe_werkzeug=True)
