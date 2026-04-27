@@ -60,7 +60,6 @@ function RemoteApprovePage() {
                     <th>사원 ID</th>
                     <th>이름</th>
                     <th>접속 PC</th>
-                    <th>IP 주소</th>
                     <th>승인</th>
                     <th>거절</th>
                   </tr>
@@ -72,7 +71,6 @@ function RemoteApprovePage() {
                       <td>{r.employee_id}</td>
                       <td>{r.name}</td>
                       <td>{r.pc_name}</td>
-                      <td>{r.ip_address}</td>
                       <td>
                         <button
                           className="btn btn-primary btn-sm"

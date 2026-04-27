@@ -65,7 +65,6 @@ function RemoteSessionPage() {
                     <th>사원번호</th>
                     <th>이름</th>
                     <th>PC 이름</th>
-                    <th>PC IP</th>
                     <th>접속 시작</th>
                     <th>강제 종료</th>
                   </tr>
@@ -76,7 +75,6 @@ function RemoteSessionPage() {
                       <td>{s.employee_id}</td>
                       <td>{s.name}</td>
                       <td>{s.pc_name}</td>
-                      <td><code style={styles.ipCode}>{s.ip_address}</code></td>
                       <td>{formatDate(s.approved_at)}</td>
                       <td>
                         <button
@@ -115,7 +113,6 @@ function RemoteSessionPage() {
                     <th>사원번호</th>
                     <th>이름</th>
                     <th>PC 이름</th>
-                    <th>PC IP</th>
                     <th>접속 시작</th>
                     <th>접속 종료</th>
                   </tr>
@@ -126,7 +123,6 @@ function RemoteSessionPage() {
                       <td>{s.employee_id}</td>
                       <td>{s.name}</td>
                       <td>{s.pc_name}</td>
-                      <td><code style={styles.ipCode}>{s.ip_address}</code></td>
                       <td>{formatDate(s.approved_at)}</td>
                       <td>{formatDate(s.disconnected_at)}</td>
                     </tr>
@@ -141,8 +137,6 @@ function RemoteSessionPage() {
   )
 }
 
-const styles = {
-  ipCode: { background: '#f0f0f0', padding: '2px 6px', borderRadius: 4, fontSize: 13, fontFamily: 'monospace' }
-}
+const styles = {}
 
 export default RemoteSessionPage
