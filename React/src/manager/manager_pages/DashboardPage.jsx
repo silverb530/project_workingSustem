@@ -3,9 +3,74 @@ import '../App_manager.css'
 
 const API_BASE = 'http://localhost:5000'
 const FILE_BASE = API_BASE
+const LOGIN_PATH = '/'
+
+function getAuthToken() {
+    const tokenKeys = [
+        'token',
+        'accessToken',
+        'jwt',
+        'authToken',
+    ]
+
+    const userKeys = [
+        'loginUser',
+        'adminUser',
+        'currentUser',
+        'authUser',
+    ]
+
+    const stores = [localStorage, sessionStorage]
+
+    for (const store of stores) {
+        for (const key of tokenKeys) {
+            const token = store.getItem(key)
+
+            if (token) {
+                return token
+            }
+        }
+
+        for (const key of userKeys) {
+            try {
+                const saved = store.getItem(key)
+
+                if (!saved) continue
+
+                const parsed = JSON.parse(saved)
+
+                if (parsed?.token) return parsed.token
+                if (parsed?.accessToken) return parsed.accessToken
+                if (parsed?.jwt) return parsed.jwt
+                if (parsed?.data?.token) return parsed.data.token
+                if (parsed?.result?.token) return parsed.result.token
+            } catch {
+            }
+        }
+    }
+
+    return null
+}
+
+function getAuthHeaders(extraHeaders = {}) {
+    const token = getAuthToken()
+
+    if (!token) {
+        return extraHeaders
+    }
+
+    return {
+        ...extraHeaders,
+        Authorization: `Bearer ${token}`,
+    }
+}
 
 async function apiGet(path) {
-    const res = await fetch(`${API_BASE}${path}`)
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+    })
+
     const data = await res.json()
 
     if (!res.ok) {
@@ -18,6 +83,7 @@ async function apiGet(path) {
 async function apiDelete(path) {
     const res = await fetch(`${API_BASE}${path}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     })
 
     const data = await res.json()
@@ -32,7 +98,9 @@ async function apiDelete(path) {
 async function apiPost(path, body = null) {
     const options = {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({
+            'Content-Type': 'application/json',
+        }),
     }
 
     if (body !== null) {
@@ -52,7 +120,9 @@ async function apiPost(path, body = null) {
 async function apiPatch(path, body = null) {
     const options = {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({
+            'Content-Type': 'application/json',
+        }),
     }
 
     if (body !== null) {
@@ -78,7 +148,7 @@ function normalizeList(data, key) {
 }
 
 function pickUserObject(value) {
-    if (!value || typeof value !== 'object') return {}
+    if (!value || typeof value !== 'object') return null
 
     if (value.user && typeof value.user === 'object') return pickUserObject(value.user)
     if (value.employee && typeof value.employee === 'object') return pickUserObject(value.employee)
@@ -91,11 +161,9 @@ function pickUserObject(value) {
 function getLoginUser() {
     const keys = [
         'loginUser',
-        'user',
+        'adminUser',
         'currentUser',
         'authUser',
-        'employee',
-        'adminUser',
     ]
 
     const stores = [localStorage, sessionStorage]
@@ -109,7 +177,11 @@ function getLoginUser() {
                 const parsed = JSON.parse(saved)
                 const user = pickUserObject(parsed)
 
-                if (user.employee_id || user.employeeId || user.id || user.name || user.email) {
+                if (!user) continue
+
+                const employeeId = user.employee_id || user.employeeId || user.id
+
+                if (employeeId) {
                     return user
                 }
             } catch {
@@ -117,45 +189,39 @@ function getLoginUser() {
         }
     }
 
-    for (const store of stores) {
-        for (let i = 0; i < store.length; i += 1) {
-            try {
-                const key = store.key(i)
-                const saved = store.getItem(key)
-                if (!saved) continue
-
-                const parsed = JSON.parse(saved)
-                const user = pickUserObject(parsed)
-
-                if (user.employee_id || user.employeeId || user.name || user.email) {
-                    return user
-                }
-            } catch {
-            }
-        }
-    }
-
-    return {}
+    return null
 }
 
 function getLoginName(user) {
+    if (!user) return ''
+
     return (
         user.name ||
         user.displayName ||
         user.display_name ||
         user.username ||
         user.email ||
-        '관리자'
+        ''
     )
 }
 
 function getLoginEmployeeId(user) {
+    if (!user) return null
+
     return (
         user.employee_id ||
         user.employeeId ||
         user.id ||
         null
     )
+}
+
+function LoginRequiredRedirect() {
+    useEffect(() => {
+        window.location.replace(LOGIN_PATH)
+    }, [])
+
+    return null
 }
 
 const Icons = {
@@ -297,7 +363,7 @@ function Avatar({ src, name, size = 'md', className = '' }) {
 
 function TaskSection() {
     const loginUser = getLoginUser()
-    const loginEmployeeId = getLoginEmployeeId(loginUser) || 1
+    const loginEmployeeId = getLoginEmployeeId(loginUser)
 
     const [tasks, setTasks] = useState([])
     const [employees, setEmployees] = useState([])
@@ -340,6 +406,11 @@ function TaskSection() {
         try {
             setError('')
             setMessage('')
+
+            if (!loginEmployeeId) {
+                setError('로그인 사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.')
+                return
+            }
 
             if (!title.trim()) {
                 setError('업무 제목을 입력하세요.')
@@ -403,7 +474,7 @@ function TaskSection() {
                 nextStatus = 'TODO'
             }
 
-            await apiPatch(`/api/tasks/${task.task_id}/status`, {
+            await apiPatch(`/api/tasks/${task.task_id}`, {
                 status: nextStatus,
             })
 
@@ -759,6 +830,7 @@ function ChatSection() {
 
             const res = await fetch(`${API_BASE}/api/chatlogs/upload`, {
                 method: 'POST',
+                headers: getAuthHeaders(),
                 body: formData,
             })
 
@@ -901,7 +973,7 @@ function ChatSection() {
 
 function FileBoard() {
     const loginUser = getLoginUser()
-    const loginEmployeeId = getLoginEmployeeId(loginUser) || 1
+    const loginEmployeeId = getLoginEmployeeId(loginUser)
 
     const [viewMode, setViewMode] = useState('grid')
     const [files, setFiles] = useState([])
@@ -939,6 +1011,12 @@ function FileBoard() {
         const file = e.target.files?.[0]
         if (!file) return
 
+        if (!loginEmployeeId) {
+            setError('로그인 사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.')
+            e.target.value = ''
+            return
+        }
+
         try {
             setError('')
             setMessage('')
@@ -949,6 +1027,7 @@ function FileBoard() {
 
             const res = await fetch(`${API_BASE}/api/files/upload`, {
                 method: 'POST',
+                headers: getAuthHeaders(),
                 body: formData,
             })
 
@@ -1187,7 +1266,7 @@ function MeetingSection() {
                 title: newMeetingTitle.trim(),
                 time: newMeetingTime.trim() || '미정',
                 duration: newMeetingDuration.trim() || '미정',
-                participants: [loginName],
+                participants: [loginName || '사용자'],
             })
 
             setMessage('회의가 추가되었습니다.')
@@ -1346,6 +1425,11 @@ function MeetingSection() {
 
 function DashboardPage() {
     const loginUser = getLoginUser()
+
+    if (!loginUser) {
+        return <LoginRequiredRedirect />
+    }
+
     const loginName = getLoginName(loginUser)
 
     const [dashboardData, setDashboardData] = useState(null)

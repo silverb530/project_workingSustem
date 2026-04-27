@@ -1,10 +1,14 @@
 from flask import Blueprint, jsonify
 from db import get_conn
 
+# [보안 추가] JWT 토큰이 있는 로그인 사용자만 대시보드 조회 가능
+from security.auth_decorators import login_required
+
 dashboard_bp = Blueprint("dashboard", __name__)
 
 
 @dashboard_bp.route("/api/dashboard", methods=["GET"])
+@login_required
 def get_dashboard():
     conn = None
 

@@ -2,6 +2,9 @@ from flask import Blueprint, request, jsonify
 from db import execute_query, get_conn
 from werkzeug.security import check_password_hash, generate_password_hash
 
+# [보안 추가] 로그인 성공 시 JWT 토큰을 발급하기 위해 추가
+from security.jwt_utils import create_token
+
 auth_bp = Blueprint("auth", __name__)
 
 
@@ -82,10 +85,18 @@ def login():
         "role": user.get("role")
     }
 
+    # [보안 추가] 로그인 성공한 사용자 정보를 기반으로 JWT 토큰 생성
+    token = create_token(login_user)
+
     return jsonify({
         "success": True,
         "result": "success",
         "message": "로그인 성공",
+
+        # [보안 추가] 프론트/앱에서 이후 API 요청 시 Authorization 헤더에 넣어 사용할 토큰
+        "token": token,
+        "token_type": "Bearer",
+
         "user": login_user
     })
 

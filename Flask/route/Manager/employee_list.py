@@ -1,10 +1,14 @@
 from flask import Blueprint, jsonify
 from db import get_conn
 
+# [보안 추가] JWT 토큰이 있는 로그인 사용자만 직원 목록 조회 가능
+from security.auth_decorators import login_required
+
 employee_bp = Blueprint("employee", __name__)
 
 
 @employee_bp.route("/api/employees", methods=["GET"])
+@login_required
 def get_employees():
     conn = None
 

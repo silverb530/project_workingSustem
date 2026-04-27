@@ -19,18 +19,26 @@ const Login = () => {
 
             const data = response.data
 
-                
-
             if (data.success || data.result === 'success') {
                 const loginUser = data.user
+                const token = data.token
 
+                localStorage.removeItem('token')
                 localStorage.removeItem('loginUser')
+                localStorage.removeItem('user')
+
+                if (token) {
+                    localStorage.setItem('token', token)
+                }
+
                 localStorage.setItem('loginUser', JSON.stringify(loginUser))
                 localStorage.setItem('user', JSON.stringify(loginUser))
 
                 alert(`${loginUser.name}님, 환영합니다!`)
 
-                if (loginUser.role === 'ADMIN') {
+                const role = String(loginUser.role || '').toUpperCase()
+
+                if (role === 'ADMIN') {
                     navigate('/AppManager')
                 } else {
                     navigate('/user')
@@ -71,6 +79,7 @@ const Login = () => {
 
                     <button type="submit">로그인</button>
                 </form>
+
                 <p style={{ marginTop: 12, fontSize: 13, textAlign: 'center' }}>
                     계정이 없으신가요? <a href="/register">회원가입</a>
                 </p>
