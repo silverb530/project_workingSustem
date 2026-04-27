@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import Icons from './Icons';
-
-const API = `http://${window.location.hostname}:5000`;
+import { API_BASE as API } from '../config';
 
 const STUN = {
     iceServers: [
