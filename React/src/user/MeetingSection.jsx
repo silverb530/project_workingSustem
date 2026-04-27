@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Icons from './Icons';
 import Modal from './Modal';
 import MeetingRoom from './MeetingRoom';
-import { API_BASE as API } from '../config';
+import { MEETING_SERVER as API } from '../config';
 
 function MeetingSection({ mini = false }) {
     const user = JSON.parse(localStorage.getItem('user') || '{}');

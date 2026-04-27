@@ -1,5 +1,10 @@
 flask
 flask-cors
 flask-jwt-extended
-psutil
+flask-socketio
 pymysql
+psutil
+opencv-python
+numpy
+insightface
+werkzeug

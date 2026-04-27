@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import Icons from './Icons';
-import { API_BASE as API } from '../config';
+import { MEETING_SERVER as API } from '../config';
 
 const STUN = {
     iceServers: [
