@@ -41,7 +41,7 @@ function DashboardSection({ onSectionChange, currentUser  }) {
           <FileBoard mini />
         </div>
         <div className="grid-column">
-          <ChatSection mini currentUser={currentUser}/> {/*실시간 때 수정*/}/>
+          <ChatSection mini currentUser={currentUser}/> 
           <MeetingSection mini />
         </div>
       </div>
