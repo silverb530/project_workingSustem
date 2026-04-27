@@ -5,43 +5,63 @@ import Avatar from './Avatar'
 // 추가: Flask API 주소
 const API_BASE = 'http://localhost:5000'
 
-// 추가: 현재 로그인 사용자 임시값
-// 나중에 로그인 정보가 App_user.jsx에서 props로 내려오면 이 값을 교체하면 됨
-const CURRENT_USER = {
-  id: 1,
- name: '나',
-  avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face',
+const FALLBACK_TEAM_MEMBERS = [] //8번부터 실시간 때 수정 
+
+function toNumber(value) {
+  if (value === undefined || value === null || value === '') return null
+  const numberValue = Number(value)
+  return Number.isNaN(numberValue) ? null : numberValue
 }
 
-// 추가: DB 연결 실패 시 화면 표시용 예비 팀원 목록
-const FALLBACK_TEAM_MEMBERS = [
-  {
-    id: 2,
-    name: '김사라',
-    role: '디자이너',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=32&h=32&fit=crop&crop=face',
-  },
-  {
-    id: 3,
-    name: '이민준',
-    role: '개발자',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face',
-  },
-  {
-    id: 4,
-    name: '박지연',
-    role: '기획자',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face',
-  },
-  {
-    id: 5,
-    name: '홍길동',
-    role: '프로덕트 매니저',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face',
-  },
-]
+function normalizeCurrentUser(currentUser) {
+  if (!currentUser) return null
 
-function ChatSection({ mini = false }) {
+  const id = toNumber(currentUser.employee_id ?? currentUser.id)
+
+  return {
+    ...currentUser,
+    id,
+    employee_id: id,
+    name: currentUser.name || '사용자',
+    position: currentUser.position || currentUser.role || '직책 없음',
+    avatar: currentUser.avatar || '',
+  }
+}
+
+function normalizeRoom(room) {
+  const id = toNumber(room.id ?? room.room_id)
+
+  return {
+    ...room,
+    id,
+    room_id: id,
+    name: room.name || room.room_name || '채팅방',
+    unread: room.unread || 0,
+  }
+}
+
+function normalizeMember(member) {
+  const id = toNumber(member.id ?? member.employee_id)
+
+  return {
+    ...member,
+    id,
+    employee_id: id,
+    name: member.name || '이름 없음',
+    role: member.role || member.position || member.department || '직책 없음',
+    avatar: member.avatar || '',
+  }
+} //54번까지 실시간 때 수정
+
+
+                                   //실시간 때 currentUser 추가
+function ChatSection({ mini = false, currentUser }) {
+  
+  // 실시간 채팅 때 추가
+  const loginUser = normalizeCurrentUser(currentUser)
+  const currentUserId = loginUser?.id ?? null
+  const currentUserName = loginUser?.name || '사용자'
+
   // 수정: 채팅방은 DB의 room_id 기준으로 관리
   const [activeChannelId, setActiveChannelId] = useState(null)
   const [message, setMessage] = useState('')
@@ -50,7 +70,13 @@ function ChatSection({ mini = false }) {
   const [teamMembers, setTeamMembers] = useState(FALLBACK_TEAM_MEMBERS)
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  const messagesContainerRef = useRef(null) //실시간 채팅 때, 추가
   const messagesEndRef = useRef(null)
+  const shouldAutoScrollRef = useRef(true)  //76~78번, 실시간 때 추가
+  const prevChannelRef = useRef(null)
+  const prevMessageCountRef = useRef(0)
+  
   const emojis = ['😊','😂','👍','🎉','❤️','🔥','✅','🚀','💡','📌']
 
   // 추가: 채팅방 생성 모달 상태
@@ -62,37 +88,61 @@ function ChatSection({ mini = false }) {
   const activeChannel = channels.find(c => c.id === activeChannelId)
   const messages = allMessages[activeChannelId] || []
 
-  useEffect(() => {
-    if (mini) return
-   
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  const scrollToBottom = (behavior = 'smooth') => { //실시간 때, 추가
+    messagesEndRef.current?.scrollIntoView({ behavior })
+  }
+
+   const handleMessagesScroll = () => { //실시간 채팅 때 추가
+    const box = messagesContainerRef.current
+    if (!box) return
+
+    const distanceFromBottom = box.scrollHeight - box.scrollTop - box.clientHeight
+    shouldAutoScrollRef.current = distanceFromBottom <= 80
+  }
+
+  useEffect(() => {// 103부터 실시간 채팅 때, 추가
+    if (!activeChannelId || mini) return
+
+    const channelChanged = prevChannelRef.current !== activeChannelId
+    if (channelChanged) {
+      shouldAutoScrollRef.current = true
+      prevChannelRef.current = activeChannelId
+    }
+
+    if (shouldAutoScrollRef.current) {
+      setTimeout(() => scrollToBottom(channelChanged ? 'auto' : 'smooth'), 0)
+    }
+
+    prevMessageCountRef.current = messages.length
+  }, [activeChannelId, messages.length, mini]) //117까지 실시간 채팅 때, 추가
 
   // 추가: 최초 실행 시 팀원 목록과 채팅방 목록을 DB에서 불러옴
   useEffect(() => {
+    if (!currentUserId) return // 실시간 채팅 때, 추가
+
     fetchMembers()
     fetchRooms()
-  }, [])
+  }, [currentUserId]) //실시간 채팅 때, 수정
 
     // 추가: 선택된 채팅방의 메시지를 DB에서 불러오고, 1초마다 갱신
   useEffect(() => {
-    if (!activeChannelId) return
+    if (!activeChannelId || !currentUserId) return //실시간 채팅 때, 수정
 
     fetchMessages(activeChannelId)
     const timer = setInterval(() => fetchMessages(activeChannelId), 1000)
 
     return () => clearInterval(timer)
-  }, [activeChannelId])
+  }, [activeChannelId, currentUserId]) //실시간 채팅 때, 수정
 
    // 추가: DB에서 팀원 목록 조회
-  const fetchMembers = async () => {
+  const fetchMembers = async () => { //실//실시간 채팅 때, 새롭게 수정
     try {
       const res = await fetch(`${API_BASE}/api/chat/members`)
       const data = await res.json()
 
       if (data.success && Array.isArray(data.members)) {
-        const filtered = data.members.filter(m => Number(m.id) !== Number(CURRENT_USER.id))
-        setTeamMembers(filtered.length > 0 ? filtered : FALLBACK_TEAM_MEMBERS)
+        const filtered = data.members.map(normalizeMember).filter(member=> member.id && Number(member.id) !== Number(currentUserId))
+        setTeamMembers(filtered)
       }
     } catch (error) {
       console.error('팀원 목록 조회 실패:', error)
@@ -101,16 +151,20 @@ function ChatSection({ mini = false }) {
 
    // 추가: DB에서 내가 참여 중인 채팅방 목록 조회
   const fetchRooms = async () => {
+     if (!currentUserId) return //실시간 때, 추가
+
     try {
-      const res = await fetch(`${API_BASE}/api/chat/rooms?employee_id=${CURRENT_USER.id}`)
+      const res = await fetch(`${API_BASE}/api/chat/rooms?employee_id=${currentUserId}`)
       const data = await res.json()
 
-      if (data.success && Array.isArray(data.rooms)) {
-        setChannels(data.rooms)
+      if (data.success && Array.isArray(data.rooms)) { //실시간 때 수정
+        const nextRooms = data.rooms.map(normalizeRoom).filter(room => room.id)
+        setChannels(nextRooms)
 
-        if (!activeChannelId && data.rooms.length > 0) {
-          setActiveChannelId(data.rooms[0].id)
-        }
+        setActiveChannelId(prev => { // 실시간 때, 추가
+          if (prev && nextRooms.some(room => room.id === prev)) return prev
+          return nextRooms[0]?.id || null
+        })
       }
     } catch (error) {
       console.error('채팅방 목록 조회 실패:', error)
@@ -119,24 +173,31 @@ function ChatSection({ mini = false }) {
 
     // 추가: DB에서 특정 채팅방 메시지 조회
   const fetchMessages = async (roomId) => {
+    if (!roomId || !currentUserId) return //실시간 때 추가
+
     try {
       const res = await fetch(`${API_BASE}/api/chat/messages/${roomId}`)
       const data = await res.json()
 
-      if (data.success && Array.isArray(data.messages)) {
-        setAllMessages(prev => ({
+      if (data.success && Array.isArray(data.messages)) { //실시간 때, 수정
+         setAllMessages(prev => ({
           ...prev,
-          [roomId]: data.messages.map(msg => ({
-            id: msg.id,
-            senderId: msg.sender_id,
-            user: {
-              name: Number(msg.sender_id) === Number(CURRENT_USER.id) ? CURRENT_USER.name: msg.sender_name,
-              avatar: msg.sender_avatar || '',
-            },
-            content: msg.content,
-            time: msg.time,
-            isMe: Number(msg.sender_id) === Number(CURRENT_USER.id),
-          })),
+          [roomId]: data.messages.map(msg => {
+            const senderId = toNumber(msg.sender_id)
+            const isMe = Number(senderId) === Number(currentUserId)
+
+            return {
+              id: msg.id ?? msg.message_id,
+              senderId,
+              user: {
+                name: isMe ? currentUserName : (msg.sender_name || '알 수 없음'),
+                avatar: msg.sender_avatar || '',
+              },
+              content: msg.content,
+              time: msg.time || msg.send_at || '',
+              isMe,
+            }
+          }),
         }))
       }
     } catch (error) {
@@ -147,19 +208,23 @@ function ChatSection({ mini = false }) {
   // 수정: 메시지 전송 시 chat_messages에 INSERT
   const sendMessage = async () => {
     if (!message.trim()) return
-    if (!activeChannelId) return
+    if (!activeChannelId || !currentUserId) { //실시간 때 수정
+      alert('로그인 사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.')
+      return
+    }
 
     const content = message.trim()
     setMessage('')
+    shouldAutoScrollRef.current = true //실시간 때 추가
 
     try {
       const res = await fetch(`${API_BASE}/api/chat/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify({ //실시간 때 수정
           room_id: activeChannelId,
-          sender_id: CURRENT_USER.id,
-          content: content,
+          sender_id: currentUserId,
+          content,
         }),
       })
 
@@ -172,6 +237,7 @@ function ChatSection({ mini = false }) {
       }
 
       await fetchMessages(activeChannelId)
+      setTimeout(() => scrollToBottom('smooth'), 0) //실시간 때 추가
     } catch (error) {
       console.error('메시지 전송 실패:', error)
       alert('Flask 서버와 연결할 수 없습니다.')
@@ -188,6 +254,7 @@ function ChatSection({ mini = false }) {
 
   // 수정: 채팅방 이동은 room_id 기준
   const switchChannel = (channelId) => {
+    shouldAutoScrollRef.current = true //실시간 때 수정
     setActiveChannelId(channelId)
     setChannels(prev => prev.map(c => c.id === channelId ? { ...c, unread: 0 } : c))
   }
@@ -219,18 +286,26 @@ function ChatSection({ mini = false }) {
   }
 
    // 추가: 초대할 팀원 선택
-  const toggleMember = (memberId) => {
+  const toggleMember = (memberId) => { //실시간 때 수정
+    const numericMemberId = Number(memberId) 
+
     setSelectedMemberIds(prev => {
-      if (newRoomType === 'private') return prev.includes(memberId) ? [] : [memberId]
-      return prev.includes(memberId)
-        ? prev.filter(id => id !== memberId)
-        : [...prev, memberId]
+      if (newRoomType === 'private') return prev.includes(numericMemberId) ? [] : [numericMemberId]
+      
+      return prev.includes(numericMemberId)
+        ? prev.filter(id => id !== numericMemberId)
+        : [...prev, numericMemberId]
     })
   }
 
   // 수정: 채팅방 생성 시 chat_rooms와 chat_room_members에 INSERT
   const createRoom = async () => {
     if (loading) return
+
+     if (!currentUserId) { //실시간 때 추가
+      alert('로그인 사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.')
+      return
+    }
 
     if (newRoomType === 'private' && selectedMemberIds.length !== 1) {
       alert('개인 채팅방은 팀원 1명을 선택해야 합니다.')
@@ -251,7 +326,7 @@ function ChatSection({ mini = false }) {
       : (newRoomName.trim() || `${invitedNames.join(', ')} 채팅방`)
 
     // 추가: 자기 자신도 chat_room_members에 들어가야 하므로 member_ids에 CURRENT_USER.id 포함
-    const memberIds = Array.from(new Set([CURRENT_USER.id, ...selectedMemberIds]))
+    const memberIds = Array.from(new Set([currentUserId, ...selectedMemberIds]))  //추가 수정
 
     setLoading(true)
 
@@ -262,7 +337,7 @@ function ChatSection({ mini = false }) {
         body: JSON.stringify({
           room_type: newRoomType === 'private' ? 'DIRECT' : 'GROUP',
           room_name: roomName,
-          creator_id: CURRENT_USER.id,
+          creator_id: currentUserId, //실시간 때 수정
           member_ids: memberIds,
         }),
       })
@@ -275,7 +350,7 @@ function ChatSection({ mini = false }) {
       }
 
       await fetchRooms()
-      setActiveChannelId(data.room.id)
+      setActiveChannelId(normalizeRoom(data.room).id) //실시간 때 수정
       closeRoomModal()
     } catch (error) {
       console.error('채팅방 생성 실패:', error)
@@ -365,7 +440,16 @@ function ChatSection({ mini = false }) {
       </div>
 
 
-      <div className="chat-messages">
+      {!currentUserId ? ( //실시간 때 추가
+        <div className="chat-messages">
+          <p style={{ color: '#64748b', fontSize: 14 }}>
+            로그인 사용자 정보를 불러오는 중입니다.
+          </p>
+        </div>
+      ) : (
+      <div className="chat-messages" // 실시간 때 수정
+          ref={messagesContainerRef}
+          onScroll={handleMessagesScroll}>
         {messages.map((msg) => (
           <div key={msg.id} className={`message ${msg.isMe ? 'mine' : ''}`}>
             <Avatar src={msg.user.avatar} name={msg.user.name} />
@@ -387,6 +471,7 @@ function ChatSection({ mini = false }) {
         ))}
         <div ref={messagesEndRef} />
       </div>
+      )}
 
       <div className="chat-input-wrapper">
         {emojiOpen && !mini && (
@@ -407,13 +492,14 @@ function ChatSection({ mini = false }) {
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="메시지를 입력하세요... (Enter로 전송)"
-          />
+            disabled={!currentUserId || !activeChannelId} 
+          />{/*실시간 때 수정*/}
           {!mini && (
             <button className="btn btn-icon btn-ghost sm" onClick={() => setEmojiOpen(!emojiOpen)} title="이모지">
               <Icons.Smile className="sm" />
             </button>
           )}
-          <button className="btn btn-primary btn-icon sm" onClick={sendMessage} title="전송">
+          <button className="btn btn-primary btn-icon sm" onClick={sendMessage} title="전송" disabled={!currentUserId || !activeChannelId}>
             <Icons.Send className="sm" />
           </button>
         </div>

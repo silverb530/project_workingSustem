@@ -3,11 +3,12 @@ import ChatSection from './ChatSection'
 import FileBoard from './FileBoard'
 import MeetingSection from './MeetingSection'
 
-function DashboardSection({ onSectionChange }) {
+//11번에 {currentUser?.name || '사용자'}로 수정
+function DashboardSection({ onSectionChange, currentUser  }) {
   return (
     <div className="content-wrapper">
       <div className="welcome-section">
-        <h1>안녕하세요, 홍길동님 👋</h1>
+        <h1>안녕하세요, {currentUser?.name || '사용자'}님 👋</h1>
         <p>오늘 팀의 진행 상황을 확인하세요.</p>
       </div>
 
@@ -40,7 +41,7 @@ function DashboardSection({ onSectionChange }) {
           <FileBoard mini />
         </div>
         <div className="grid-column">
-          <ChatSection mini />
+          <ChatSection mini currentUser={currentUser}/> {/*실시간 때 수정*/}/>
           <MeetingSection mini />
         </div>
       </div>
