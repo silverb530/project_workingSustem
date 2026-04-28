@@ -39,8 +39,14 @@ function DashboardSection({ onSectionChange, currentUser }) {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
 
+    // ✅ 공지사항 state 추가
+    const [notices, setNotices] = useState([])
+    const [noticeLoading, setNoticeLoading] = useState(true)
+    const [selectedNotice, setSelectedNotice] = useState(null)
+
     useEffect(() => {
         loadDashboard()
+        loadNotices() // ✅ 공지사항도 같이 불러오기
     }, [])
 
     async function loadDashboard() {
@@ -55,6 +61,18 @@ function DashboardSection({ onSectionChange, currentUser }) {
             setDashboardData(null)
         } finally {
             setLoading(false)
+        }
+    }
+
+    // ✅ 공지사항 불러오기 함수 추가
+    async function loadNotices() {
+        try {
+            const data = await apiGet('/api/notices')
+            setNotices(data.notices || [])
+        } catch (err) {
+            console.error('공지사항 불러오기 실패:', err)
+        } finally {
+            setNoticeLoading(false)
         }
     }
 
@@ -118,6 +136,91 @@ function DashboardSection({ onSectionChange, currentUser }) {
                         {loading ? '...' : dashboardData?.devices?.camera ?? 'idle'}
                     </p>
                     <p className="stat-change neutral">장치 상태</p>
+                </div>
+            </div>
+
+            {/* ✅ 공지사항 카드 추가 */}
+            <div style={{ background: '#fff', borderRadius: '12px',
+                          border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: '24px' }}>
+
+                {/* 헤더 */}
+                <div style={{ padding: '16px 24px', borderBottom: '1px solid #f3f4f6',
+                              display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>📢</span>
+                    <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>공지사항</h2>
+                    <span style={{ marginLeft: 'auto', background: '#ede9fe', color: '#7c3aed',
+                                   fontSize: '12px', padding: '2px 8px',
+                                   borderRadius: '99px', fontWeight: 600 }}>
+                        {notices.length}건
+                    </span>
+                </div>
+
+                {/* 목록 */}
+                <div>
+                    {noticeLoading && (
+                        <p style={{ padding: '20px', color: '#9ca3af', textAlign: 'center', margin: 0 }}>
+                            불러오는 중...
+                        </p>
+                    )}
+
+                    {!noticeLoading && notices.length === 0 && (
+                        <p style={{ padding: '20px', color: '#9ca3af', textAlign: 'center', margin: 0 }}>
+                            등록된 공지사항이 없습니다.
+                        </p>
+                    )}
+
+                    {!noticeLoading && notices.map((n, idx) => (
+                        <div
+                            key={n.notice_id}
+                            onClick={() =>
+                                setSelectedNotice(
+                                    selectedNotice?.notice_id === n.notice_id ? null : n
+                                )
+                            }
+                            style={{
+                                padding: '14px 24px',
+                                borderBottom: idx < notices.length - 1 ? '1px solid #f3f4f6' : 'none',
+                                cursor: 'pointer',
+                                background: selectedNotice?.notice_id === n.notice_id ? '#faf5ff' : '#fff',
+                                transition: 'background 0.15s',
+                            }}
+                        >
+                            {/* 제목 행 */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {Number(n.is_pinned) === 1 && (
+                                    <span style={{ background: '#fef3c7', color: '#d97706',
+                                                   fontSize: '11px', padding: '2px 6px',
+                                                   borderRadius: '4px', fontWeight: 600 }}>
+                                        📌 고정
+                                    </span>
+                                )}
+                                <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>
+                                    {n.title}
+                                </span>
+                                <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#9ca3af' }}>
+                                    {n.created_at
+                                        ? new Date(n.created_at).toLocaleDateString('ko-KR')
+                                        : '-'}
+                                </span>
+                            </div>
+
+                            {/* 작성자 */}
+                            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6b7280' }}>
+                                {n.author_name || '관리자'}
+                            </p>
+
+                            {/* 클릭 시 내용 펼치기 */}
+                            {selectedNotice?.notice_id === n.notice_id && (
+                                <div style={{
+                                    marginTop: '10px', padding: '12px',
+                                    background: '#f3f4f6', borderRadius: '8px',
+                                    fontSize: '14px', color: '#374151', lineHeight: '1.6'
+                                }}>
+                                    {n.content}
+                                </div>
+                            )}
+                        </div>
+                    ))}
                 </div>
             </div>
 
