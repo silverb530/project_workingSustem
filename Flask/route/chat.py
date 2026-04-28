@@ -1,7 +1,28 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_from_directory
+from werkzeug.utils import secure_filename
 from db import get_conn
+import os
+import time
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/api/chat")
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "chat_files")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+ALLOWED_CHAT_EXTENSIONS = {
+    ".jpg", ".jpeg", ".png", ".gif", ".webp",
+    ".mp4", ".webm", ".mov", ".avi"
+}
+
+
+def is_allowed_chat_file(filename):
+    ext = os.path.splitext(filename or "")[1].lower()
+    return ext in ALLOWED_CHAT_EXTENSIONS
+
+
+def make_chat_file_url(message_id):
+    return f"/api/chat/files/{message_id}"
 
 
 def ok(**kwargs):
@@ -268,7 +289,6 @@ def get_messages(room_id):
             cur.execute(
                 """
                 SELECT
-                    cm.message_id AS id,
                     cm.message_id,
                     cm.room_id,
                     cm.sender_id,
@@ -276,24 +296,43 @@ def get_messages(room_id):
                     e.position AS sender_position,
                     '' AS sender_avatar,
                     cm.content,
+                    cm.message_type,
+                    cm.file_name,
+                    cm.file_path,
+                    cm.file_size,
+                    cm.mime_type,
+                    cm.is_notice,
                     DATE_FORMAT(cm.send_at, '%%p %%h:%%i') AS time,
-                    DATE_FORMAT(cm.send_at, '%%Y-%%m-%%d %%H:%%i:%%s') AS send_at
+                    cm.send_at
                 FROM chat_messages cm
                 LEFT JOIN employees e
                     ON cm.sender_id = e.employee_id
                 WHERE cm.room_id = %s
                   AND IFNULL(cm.is_deleted, 0) = 0
-                ORDER BY cm.send_at ASC, cm.message_id ASC
+                ORDER BY cm.message_id ASC
                 """,
                 (room_id,)
             )
 
             messages = cur.fetchall()
 
-        return ok(messages=messages)
+        for message in messages:
+            if message.get("message_type") == "FILE":
+                message["file_url"] = make_chat_file_url(message["message_id"])
+            else:
+                message["file_url"] = None
+
+        return jsonify({
+            "success": True,
+            "messages": messages
+        })
 
     except Exception as e:
-        return fail(str(e), 500)
+        print("메시지 조회 오류:", e)
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
 
     finally:
         if conn:
@@ -387,6 +426,347 @@ def delete_message(message_id):
             conn.rollback()
 
         return fail(str(e), 500)
+
+    finally:
+        if conn:
+            conn.close()
+
+#공지 등록 api
+@chat_bp.route("/rooms/<int:room_id>/notice", methods=["POST"])
+def register_room_notice(room_id):
+    data = request.get_json(silent=True) or {}
+
+    message_id = data.get("message_id")
+
+    if not message_id:
+        return jsonify({
+            "success": False,
+            "message": "message_id가 필요합니다."
+        }), 400
+
+    conn = None
+
+    try:
+        conn = get_conn()
+
+        with conn.cursor() as cur:
+            # 1. 해당 메시지가 이 방에 실제 존재하는지 확인
+            cur.execute(
+                """
+                SELECT message_id
+                FROM chat_messages
+                WHERE room_id = %s
+                  AND message_id = %s
+                  AND IFNULL(is_deleted, 0) = 0
+                LIMIT 1
+                """,
+                (room_id, message_id)
+            )
+
+            if not cur.fetchone():
+                return jsonify({
+                    "success": False,
+                    "message": "공지로 등록할 메시지를 찾을 수 없습니다."
+                }), 404
+
+            # 2. 같은 방의 기존 공지를 전부 내림
+            cur.execute(
+                """
+                UPDATE chat_messages
+                SET is_notice = 0
+                WHERE room_id = %s
+                """,
+                (room_id,)
+            )
+
+            # 3. 선택한 메시지만 공지로 등록
+            cur.execute(
+                """
+                UPDATE chat_messages
+                SET is_notice = 1
+                WHERE room_id = %s
+                  AND message_id = %s
+                """,
+                (room_id, message_id)
+            )
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "공지로 등록되었습니다."
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+
+        print("공지 등록 오류:", e)
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+    finally:
+        if conn:
+            conn.close()
+
+
+#공지 조회 api
+@chat_bp.route("/rooms/<int:room_id>/notice", methods=["GET"])
+def get_room_notice(room_id):
+    conn = None
+
+    try:
+        conn = get_conn()
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    cm.message_id,
+                    cm.room_id,
+                    cm.sender_id,
+                    e.name AS sender_name,
+                    e.position AS sender_position,
+                    cm.content,
+                    cm.is_notice
+                FROM chat_messages cm
+                LEFT JOIN employees e
+                    ON cm.sender_id = e.employee_id
+                WHERE cm.room_id = %s
+                  AND cm.is_notice = 1
+                  AND IFNULL(cm.is_deleted, 0) = 0
+                ORDER BY cm.message_id DESC
+                LIMIT 1
+                """,
+                (room_id,)
+            )
+
+            notice = cur.fetchone()
+
+        return jsonify({
+            "success": True,
+            "notice": notice
+        })
+
+    except Exception as e:
+        print("공지 조회 오류:", e)
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+    finally:
+        if conn:
+            conn.close()
+
+
+#공지 해제 api
+@chat_bp.route("/rooms/<int:room_id>/notice", methods=["DELETE"])
+def clear_room_notice(room_id):
+    conn = None
+
+    try:
+        conn = get_conn()
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE chat_messages
+                SET is_notice = 0
+                WHERE room_id = %s
+                """,
+                (room_id,)
+            )
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "공지 등록이 해제되었습니다."
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+
+        print("공지 내리기 오류:", e)
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+    finally:
+        if conn:
+            conn.close()
+
+#파일 업로드 api
+@chat_bp.route("/files", methods=["POST"])
+def upload_chat_file():
+    conn = None
+
+    try:
+        room_id = request.form.get("room_id", type=int)
+        sender_id = request.form.get("sender_id", type=int)
+
+        if not room_id:
+            return jsonify({"success": False, "message": "room_id가 필요합니다."}), 400
+
+        if not sender_id:
+            return jsonify({"success": False, "message": "sender_id가 필요합니다."}), 400
+
+        if "file" not in request.files:
+            return jsonify({"success": False, "message": "업로드할 파일이 없습니다."}), 400
+
+        file = request.files["file"]
+
+        if file.filename == "":
+            return jsonify({"success": False, "message": "파일명이 비어 있습니다."}), 400
+
+        if not is_allowed_chat_file(file.filename):
+            return jsonify({
+                "success": False,
+                "message": "사진 또는 동영상 파일만 업로드할 수 있습니다."
+            }), 400
+
+        original_name = file.filename
+        safe_name = secure_filename(original_name)
+
+        if not safe_name:
+            safe_name = f"chat_file_{int(time.time())}"
+
+        saved_name = f"{int(time.time())}_{sender_id}_{safe_name}"
+        save_path = os.path.join(UPLOAD_DIR, saved_name)
+
+        conn = get_conn()
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT 1
+                FROM chat_room_members
+                WHERE room_id = %s
+                  AND employee_id = %s
+                LIMIT 1
+                """,
+                (room_id, sender_id)
+            )
+
+            if not cur.fetchone():
+                return jsonify({
+                    "success": False,
+                    "message": "이 채팅방의 멤버가 아니므로 파일을 보낼 수 없습니다."
+                }), 403
+
+        file.save(save_path)
+
+        file_size = os.path.getsize(save_path)
+        mime_type = file.mimetype or "application/octet-stream"
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO chat_messages (
+                    room_id,
+                    sender_id,
+                    content,
+                    message_type,
+                    file_name,
+                    file_path,
+                    file_size,
+                    mime_type,
+                    is_deleted,
+                    is_notice,
+                    send_at
+                )
+                VALUES (%s, %s, %s, 'FILE', %s, %s, %s, %s, 0, 0, NOW())
+                """,
+                (
+                    room_id,
+                    sender_id,
+                    original_name,
+                    original_name,
+                    saved_name,
+                    file_size,
+                    mime_type
+                )
+            )
+
+            message_id = cur.lastrowid
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "파일 업로드 완료",
+            "message_id": message_id,
+            "file_url": make_chat_file_url(message_id)
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+
+        print("파일 업로드 오류:", e)
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+    finally:
+        if conn:
+            conn.close()
+
+
+
+#파일 보기 api
+@chat_bp.route("/files/<int:message_id>", methods=["GET"])
+def get_chat_file(message_id):
+    conn = None
+
+    try:
+        conn = get_conn()
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    file_name,
+                    file_path,
+                    mime_type
+                FROM chat_messages
+                WHERE message_id = %s
+                  AND message_type = 'FILE'
+                  AND IFNULL(is_deleted, 0) = 0
+                LIMIT 1
+                """,
+                (message_id,)
+            )
+
+            row = cur.fetchone()
+
+        if not row:
+            return jsonify({
+                "success": False,
+                "message": "파일을 찾을 수 없습니다."
+            }), 404
+
+        saved_name = os.path.basename(row["file_path"])
+
+        return send_from_directory(
+            UPLOAD_DIR,
+            saved_name,
+            as_attachment=False,
+            download_name=row["file_name"]
+        )
+
+    except Exception as e:
+        print("파일 조회 오류:", e)
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
 
     finally:
         if conn:

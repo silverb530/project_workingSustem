@@ -53,6 +53,21 @@ function normalizeMember(member) {
   }
 } //54번까지 실시간 때 수정
 
+//파일 업로드 헬퍼 함수
+function makeFullFileUrl(fileUrl) {
+  if (!fileUrl) return ''
+  if (fileUrl.startsWith('http')) return fileUrl
+  return `${API_BASE}${fileUrl}`
+}
+
+function isImageFile(mimeType = '') {
+  return mimeType.startsWith('image/')
+}
+
+function isVideoFile(mimeType = '') {
+  return mimeType.startsWith('video/')
+}//까지 파일 업로드 헬퍼 함수
+
 
                                    //실시간 때 currentUser 추가
 function ChatSection({ mini = false, currentUser }) {
@@ -70,9 +85,13 @@ function ChatSection({ mini = false, currentUser }) {
   const [teamMembers, setTeamMembers] = useState(FALLBACK_TEAM_MEMBERS)
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-
+  const [roomNotice, setRoomNotice] = useState(null) //채팅 공지 기능 때 추가
   const messagesContainerRef = useRef(null) //실시간 채팅 때, 추가
   const messagesEndRef = useRef(null)
+
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
+
   const shouldAutoScrollRef = useRef(true)  //76~78번, 실시간 때 추가
   const prevChannelRef = useRef(null)
   const prevMessageCountRef = useRef(0)
@@ -127,9 +146,11 @@ function ChatSection({ mini = false, currentUser }) {
     // 추가: 선택된 채팅방의 메시지를 DB에서 불러오고, 1초마다 갱신
   useEffect(() => {
     if (!activeChannelId || !currentUserId) return //실시간 채팅 때, 수정
-
+    fetchRoomNotice(activeChannelId) //채팅 공지 때 추가
     fetchMessages(activeChannelId)
-    const timer = setInterval(() => fetchMessages(activeChannelId), 1000)
+
+    const timer = setInterval(() => {fetchMessages(activeChannelId) 
+    fetchRoomNotice(activeChannelId)}, 1000) //채팅 공지 때 수정
 
     return () => clearInterval(timer)
   }, [activeChannelId, currentUserId]) //실시간 채팅 때, 수정
@@ -185,9 +206,11 @@ function ChatSection({ mini = false, currentUser }) {
           [roomId]: data.messages.map(msg => {
             const senderId = toNumber(msg.sender_id)
             const isMe = Number(senderId) === Number(currentUserId)
-
-            return {
+            //파일 업로드 때 추가
+            return {  
               id: msg.id ?? msg.message_id,
+              messageId: msg.message_id ?? msg.id,
+              roomId: msg.room_id,
               senderId,
               user: {
                 name: isMe ? currentUserName : (msg.sender_name || '알 수 없음'),
@@ -196,6 +219,12 @@ function ChatSection({ mini = false, currentUser }) {
               content: msg.content,
               time: msg.time || msg.send_at || '',
               isMe,
+
+              messageType: msg.message_type || 'TEXT',
+              fileName: msg.file_name || msg.content || '',
+              fileUrl: makeFullFileUrl(msg.file_url),
+              fileSize: msg.file_size || 0,
+              mimeType: msg.mime_type || '',
             }
           }),
         }))
@@ -244,6 +273,60 @@ function ChatSection({ mini = false, currentUser }) {
       setMessage(content)
     } 
   }
+
+  //파일 업로드 때 추가
+  const uploadChatFile = async (file) => {
+    if (!file) return
+
+    if (!activeChannelId || !currentUserId) {
+      alert('로그인 사용자 정보 또는 채팅방 정보를 찾을 수 없습니다.')
+      return
+    }
+
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      alert('사진 또는 동영상 파일만 업로드할 수 있습니다.')
+      return
+    }
+
+    const formData = new FormData()
+    formData.append('room_id', activeChannelId)
+    formData.append('sender_id', currentUserId)
+    formData.append('file', file)
+
+    setUploading(true)
+    shouldAutoScrollRef.current = true
+
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/files`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (!data.success) {
+        alert(data.message || '파일 업로드에 실패했습니다.')
+        return
+      }
+
+      await fetchMessages(activeChannelId)
+      setTimeout(() => scrollToBottom('smooth'), 0)
+    } catch (error) {
+      console.error('파일 업로드 실패:', error)
+      alert('Flask 서버와 연결할 수 없습니다.')
+    } finally {
+      setUploading(false)
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    uploadChatFile(file)
+  }//까지 파일 업로드 때 추가
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -406,6 +489,195 @@ function ChatSection({ mini = false, currentUser }) {
     }
   }
 
+  //공지 등록 때, 409부터 452까지 추가
+  const registerNotice = async (msg) => {
+  if (!activeChannelId || !currentUserId) {
+    alert('채팅방 또는 사용자 정보를 찾을 수 없습니다.')
+    return
+  }
+
+  const messageId = msg.messageId || msg.message_id || msg.id
+
+  if (!messageId) {
+    alert('메시지 ID를 찾을 수 없습니다.')
+    return
+  }
+
+  if (!window.confirm('이 메시지를 공지로 등록할까요?')) {
+    return
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/chat/rooms/${activeChannelId}/notice`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message_id: messageId,
+        created_by: currentUserId,
+      }),
+    })
+
+    const data = await res.json()
+
+    if (!data.success) {
+      alert(data.message || '공지 등록에 실패했습니다.')
+      return
+    }
+
+    await fetchRoomNotice(activeChannelId)
+    await fetchMessages(activeChannelId)
+  } catch (error) {
+    console.error('공지 등록 실패:', error)
+    alert('Flask 서버와 연결할 수 없습니다.')
+  }
+}
+
+//공지 내리기 때 454부터 483까지 추가
+  const clearNotice = async () => {
+    if (!activeChannelId) {
+      alert('채팅방 정보를 찾을 수 없습니다.')
+      return
+    }
+
+    if (!window.confirm('현재 공지를 내릴까요?')) {
+      return
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/rooms/${activeChannelId}/notice`, {
+        method: 'DELETE',
+      })
+
+      const data = await res.json()
+
+      if (!data.success) {
+        alert(data.message || '공지 내리기에 실패했습니다.')
+        return
+      }
+
+      setRoomNotice(null)
+      await fetchMessages(activeChannelId)
+    } catch (error) {
+      console.error('공지 내리기 실패:', error)
+      alert('Flask 서버와 연결할 수 없습니다.')
+    }
+  }
+
+  //공지 불러오기 때 486부터 501까지 추가
+  const fetchRoomNotice = async (roomId) => {
+    if (!roomId) return
+
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/rooms/${roomId}/notice`)
+      const data = await res.json()
+
+      if (data.success && data.notice) {
+        setRoomNotice(data.notice)
+      } else {
+        setRoomNotice(null)
+      }
+    } catch (error) {
+      console.error('공지 조회 실패:', error)
+    }
+  }
+  
+
+
+  //파일 업로드 때 추가
+  const renderMessageBubble = (msg) => {
+    const isFileMessage = String(msg.messageType || '').toUpperCase() === 'FILE'
+
+    if (isFileMessage) {
+      const fileInfo = {
+        originalName: msg.fileName || msg.content || '첨부 파일',
+        mimeType: msg.mimeType || '',
+        url: msg.fileUrl || '',
+      }
+
+      const fileTypeLabel = isImageFile(fileInfo.mimeType)
+        ? '이미지 파일'
+        : isVideoFile(fileInfo.mimeType)
+        ? '동영상 파일'
+        : '첨부 파일'
+
+      const handleDownload = async () => {
+        if (!fileInfo.url) {
+          alert('파일 주소를 찾을 수 없습니다.')
+          return
+        }
+
+        try {
+          const response = await fetch(fileInfo.url)
+
+          if (!response.ok) {
+            throw new Error('파일 다운로드 실패')
+          }
+
+          const blob = await response.blob()
+          const blobUrl = window.URL.createObjectURL(blob)
+
+          const a = document.createElement('a')
+          a.href = blobUrl
+          a.download = fileInfo.originalName || 'download'
+          document.body.appendChild(a)
+          a.click()
+          a.remove()
+
+          window.URL.revokeObjectURL(blobUrl)
+        } catch (error) {
+          console.error(error)
+          alert('파일 다운로드에 실패했습니다.')
+        }
+      }
+
+      return (
+        <div className="message-bubble file-message-bubble">
+          <div
+            className="chat-file-card"
+            onClick={handleDownload}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleDownload()
+              }
+            }}
+          >
+            <div className="chat-file-left">
+              <div className="chat-file-icon">
+                {isImageFile(fileInfo.mimeType) ? '🖼️' : isVideoFile(fileInfo.mimeType) ? '🎬' : '📎'}
+              </div>
+
+              <div className="chat-file-info">
+                <div className="chat-file-name">
+                  {fileInfo.originalName}
+                </div>
+                <div className="chat-file-type">
+                  {fileTypeLabel}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="chat-file-download-btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDownload()
+              }}
+            >
+              다운로드
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    return <div className="message-bubble">{msg.content}</div>
+  }
+
   return (
     <div className="card chat-card">
       <div className="chat-header">
@@ -439,6 +711,28 @@ function ChatSection({ mini = false, currentUser }) {
         </div>
       </div>
 
+      {/*공지 등록 때, 추가*/}
+      {roomNotice && (
+        <div className="chat-notice-bar">
+          <div className="chat-notice-content">
+            <div className="chat-notice-icon">📢</div>
+
+            <div className="chat-notice-text">
+              <strong>공지</strong>
+              <p>{roomNotice.content}</p>
+            </div>
+          </div>
+
+          <button
+            className="chat-notice-close"
+            onClick={clearNotice}
+            title="공지 내리기"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
 
       {!currentUserId ? ( //실시간 때 추가
         <div className="chat-messages">
@@ -455,17 +749,28 @@ function ChatSection({ mini = false, currentUser }) {
             <Avatar src={msg.user.avatar} name={msg.user.name} />
             <div className="message-content">
               <div className="message-header">
+                <span className="message-name">{msg.user.name}</span>
+                <span className="message-time">{msg.time}</span>
+
                 <button
+                  type="button"
+                  className="message-notice-btn"
+                  onClick={() => registerNotice(msg)}
+                  title="공지 등록"
+                >
+                  공지 등록
+                </button>
+
+                <button
+                  type="button"
                   className="message-delete"
                   onClick={() => deleteMessage(msg.id)}
                   title="메시지 삭제"
                 >
                   🗑
                 </button>
-                <span className="message-name">{msg.user.name}</span>
-                <span className="message-time">{msg.time}</span>
               </div>
-              <div className="message-bubble">{msg.content}</div>
+              {renderMessageBubble(msg)}
             </div>
           </div>
         ))}
@@ -483,9 +788,24 @@ function ChatSection({ mini = false, currentUser }) {
         )}
 
         <div className="chat-input">
-          <button className="btn btn-icon btn-ghost sm" title="파일 첨부">
-            <Icons.Paperclip className="sm" />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
+
+          <button
+            type="button"
+            className="btn btn-icon btn-ghost sm"
+            title="사진/동영상 첨부"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!currentUserId || !activeChannelId || uploading}
+          >
+            {uploading ? '...' : <Icons.Paperclip className="sm" />}
           </button>
+
           <input
             type="text"
             value={message}
