@@ -11,6 +11,7 @@ import TeamSection from './TeamSection'
 import CalendarSection from './CalendarSection'
 import FaceGate from './FaceGate'
 import RemoteNode from './RemoteNode'
+import MyPage from './MyPage'
 
 function normalizeLoginUser(rawUser) { //실시간 채팅 때 추가
   if (!rawUser) return null
@@ -96,6 +97,12 @@ function App_user() {
         return <FaceGate />
       case 'remote':
         return <RemoteNode />
+      case 'mypage':
+        return (<MyPage
+                   currentUser={currentUser}
+                   onUserUpdated={(updatedUser) => {
+                      setCurrentUser(normalizeLoginUser(updatedUser)) }}
+        />)
       default:
         return <DashboardSection onSectionChange={setActiveSection} currentUser={currentUser}/> //실시간 때 수정
     }

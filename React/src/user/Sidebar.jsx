@@ -1,6 +1,9 @@
-﻿import Icons from './Icons'
+﻿import { useState } from 'react'
+import Icons from './Icons'
 
 function Sidebar({ collapsed, onToggle, activeSection, onSectionChange }) {
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
   const navItems = [
     { id: 'dashboard', label: '대시보드', icon: Icons.LayoutDashboard },
     { id: 'tasks', label: '업무관리', icon: Icons.CheckSquare, badge: 3 },
@@ -76,7 +79,25 @@ function Sidebar({ collapsed, onToggle, activeSection, onSectionChange }) {
       )}
 
       <div className="sidebar-footer">
-        <button className="nav-item">
+        {!collapsed && settingsOpen && (
+          <div className="settings-popover">
+            <button
+              className={`settings-popover-item ${activeSection === 'mypage' ? 'active' : ''}`}
+              onClick={() => {
+                onSectionChange('mypage')
+                setSettingsOpen(false)
+              }}
+            >
+              <Icons.Users className="sm" />
+              <span>마이페이지</span>
+            </button>
+          </div>
+        )}
+
+        <button
+          className={`nav-item ${settingsOpen || activeSection === 'mypage' ? 'active' : ''}`}
+          onClick={() => setSettingsOpen(prev => !prev)}
+        >
           <Icons.Settings />
           {!collapsed && <span className="nav-item-label">설정</span>}
         </button>

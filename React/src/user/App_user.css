@@ -1583,3 +1583,182 @@ input {
 .channel-delete:hover {
     color: #ef4444;
 }
+
+/* ===============================
+   My Page
+   =============================== */
+
+.mypage-card {
+    max-width: 880px;
+    padding: 24px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background-color: var(--card);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.mypage-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+    .mypage-header h2 {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--foreground);
+        margin-bottom: 4px;
+    }
+
+    .mypage-header p {
+        font-size: 14px;
+        color: var(--muted-foreground);
+    }
+
+.mypage-role-badge {
+    padding: 6px 12px;
+    border-radius: 999px;
+    background-color: var(--secondary);
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.mypage-section-title {
+    margin: 24px 0 12px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--foreground);
+}
+
+.mypage-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.mypage-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+    .mypage-field span {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted-foreground);
+    }
+
+    .mypage-field input {
+        height: 42px;
+        padding: 0 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background-color: var(--background);
+        color: var(--foreground);
+        font-size: 14px;
+    }
+
+        .mypage-field input:focus {
+            border-color: var(--ring);
+            box-shadow: 0 0 0 2px rgba(91, 110, 174, 0.12);
+        }
+
+        .mypage-field input:disabled {
+            color: var(--muted-foreground);
+            background-color: var(--secondary);
+            cursor: not-allowed;
+        }
+
+.mypage-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+.mypage-alert {
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+    .mypage-alert.success {
+        background-color: rgba(61, 184, 139, 0.12);
+        color: #1f8a66;
+    }
+
+    .mypage-alert.error {
+        background-color: rgba(229, 72, 77, 0.12);
+        color: var(--destructive);
+    }
+
+@media (max-width: 768px) {
+    .mypage-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .mypage-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .mypage-actions {
+        flex-direction: column;
+    }
+
+        .mypage-actions .btn {
+            width: 100%;
+        }
+}
+
+/* ===============================
+   Sidebar Settings Popover
+   =============================== */
+
+.sidebar-footer {
+    position: relative;
+}
+
+.settings-popover {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 58px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+    z-index: 100;
+}
+
+.settings-popover-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    transition: 0.2s ease;
+}
+
+    .settings-popover-item:hover {
+        background: var(--secondary);
+        color: var(--foreground);
+    }
+
+    .settings-popover-item.active {
+        background: var(--secondary);
+        color: var(--primary);
+    }

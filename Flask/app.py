@@ -32,6 +32,9 @@ from FaceReco.register import register_bp
 from FaceReco.recognize import recognize_bp, load_employees
 from FaceReco.attendance import attendance_bp as face_attendance_bp
 
+from route.profile import profile_bp #마이페이지
+
+
 app = Flask(__name__)
 
 
@@ -90,6 +93,7 @@ app.register_blueprint(register_bp)
 app.register_blueprint(recognize_bp)
 app.register_blueprint(face_attendance_bp)
 app.register_blueprint(board_bp)
+app.register_blueprint(profile_bp)
 load_employees()
 
 from meeting_socket import register_meeting_socket
