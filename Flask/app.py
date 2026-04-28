@@ -1,4 +1,5 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
+import os
 from flask_cors import CORS
 from flask_socketio import SocketIO
 
@@ -20,9 +21,10 @@ from route.Manager.dashboard_routes import dashboard_bp # 매니저 페이지 �
 from route.Manager.task_route import task_bp # 매니저 업무 현황 & 할당
 from route.Manager.file_routes import file_bp #매니저 파일업로드
 from route.Manager.chat_room_routes import chat_room_bp #매니저 채팅방
-
-from route.Manager.face_manage_routes import face_manage_bp #얼굴 미등록 인원
 from route.Manager.notice_routes import notice_bp #공지사항
+from route.Manager.board.board_routes import board_bp # 게시판
+
+
 from route.meeting import meeting_bp
 
 from FaceReco.camera import camera_bp
@@ -30,7 +32,17 @@ from FaceReco.register import register_bp
 from FaceReco.recognize import recognize_bp, load_employees
 from FaceReco.attendance import attendance_bp as face_attendance_bp
 
+from route.profile import profile_bp #마이페이지
+
+
 app = Flask(__name__)
+
+
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # [중요] 리액트(5173포트)와의 통신을 허용합니다.
 # [보안 추가] 기존 CORS(app)는 모든 주소를 허용하므로, .env에 등록된 주소만 허용하도록 수정
@@ -51,6 +63,14 @@ socketio = SocketIO(
 def home():
     return jsonify({"status": "success", "message": "Flask Server is Online!"})
 
+@app.route("/uploads/<path:filename>")
+def uploaded_file(filename):
+    return send_from_directory(
+        app.config["UPLOAD_FOLDER"],
+        filename,
+        as_attachment=True
+    )
+
 app.register_blueprint(auth_bp)
 app.register_blueprint(app_auth_bp)
 app.register_blueprint(app_register_bp)
@@ -64,7 +84,6 @@ app.register_blueprint(dashboard_bp)
 app.register_blueprint(task_bp)
 app.register_blueprint(file_bp)
 app.register_blueprint(chat_room_bp)
-app.register_blueprint(face_manage_bp)
 app.register_blueprint(notice_bp)
 app.register_blueprint(Mchat_bp)
 app.register_blueprint(meeting_bp)
@@ -73,10 +92,13 @@ app.register_blueprint(camera_bp)
 app.register_blueprint(register_bp)
 app.register_blueprint(recognize_bp)
 app.register_blueprint(face_attendance_bp)
+app.register_blueprint(board_bp)
+app.register_blueprint(profile_bp)
 load_employees()
 
 from meeting_socket import register_meeting_socket
 register_meeting_socket(socketio)
+
 
 if __name__ == '__main__':
     # [보안 추가]

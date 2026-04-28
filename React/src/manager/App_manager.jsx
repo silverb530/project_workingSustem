@@ -18,6 +18,7 @@ import FileSharePage from './manager_pages/FileSharePage.jsx'
 import AccountManagePage from './manager_pages/AccountManagePage.jsx'
 import RemoteApprovePage from './manager_pages/RemoteApprovePage.jsx'
 import RemoteSessionPage from './manager_pages/RemoteSessionPage.jsx'
+import NoticeBoardPage from './manager_pages/NoticeBoardPage.jsx'
 
 function getLoginUser() {
     try {
@@ -302,10 +303,10 @@ function Sidebar({
         },
         {
             id: 'fileGroup',
-            label: '파일 관리',
+            label: '게시판 자료실',
             icon: Icons.FolderOpen,
             items: [
-                { id: 'fileShare', label: '파일 공유' },
+                { id: 'noticeBoard', label: '게시판'},
             ],
         },
         {
@@ -508,6 +509,8 @@ function AppManager() {
                 return <RemoteApprovePage />
             case 'remoteSession':
                 return <RemoteSessionPage />
+            case 'noticeBoard':
+                return <NoticeBoardPage />
             default:
                 return <DashboardPage />
         }
