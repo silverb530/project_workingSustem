@@ -1,220 +1,237 @@
-﻿import { useState, useRef } from 'react'
+﻿import { useEffect, useState } from 'react'
 import Icons from './Icons'
-import Modal from './Modal'
 
-function FileBoard({ mini = false }) {
-  const [viewMode, setViewMode] = useState('grid')
-  const [activeTab, setActiveTab] = useState('files')
-  const [files, setFiles] = useState([
-    { id: 1, name: '브랜드 가이드라인.pdf', type: 'pdf', size: '2.4 MB', modified: '2시간 전', pinned: true },
-    { id: 2, name: '1분기 보고서.xlsx', type: 'spreadsheet', size: '856 KB', modified: '어제', pinned: false },
-    { id: 3, name: '히어로 이미지.png', type: 'image', size: '1.2 MB', modified: '3일 전', pinned: false },
-    { id: 4, name: '프로젝트 에셋', type: 'folder', size: '파일 12개', modified: '1주일 전', pinned: false },
-  ])
-  const [posts, setPosts] = useState([
-    { id: 1, title: '4월 업데이트 공지사항', author: '홍길동', date: '2024-04-22', views: 24, comments: 3, pinned: true },
-    { id: 2, title: '스프린트 회고 결과 공유', author: '김사라', date: '2024-04-20', views: 18, comments: 5, pinned: false },
-    { id: 3, title: '신규 입사자 온보딩 가이드', author: '이민준', date: '2024-04-18', views: 42, comments: 1, pinned: false },
-  ])
-  const [showFileModal, setShowFileModal] = useState(false)
-  const [showPostModal, setShowPostModal] = useState(false)
-  const [newPost, setNewPost] = useState({ title: '', content: '' })
-  const [selectedFile, setSelectedFile] = useState(null)
-  const [openFileMenuId, setOpenFileMenuId] = useState(null)
-  const fileInputRef = useRef(null)
+const API_BASE = `http://${window.location.hostname}:5000`
 
-  const FileIcon = ({ type }) => {
-    switch (type) {
-      case 'pdf': return <Icons.FileText className={`xl file-icon ${type}`} />
-      case 'spreadsheet': return <Icons.FileSpreadsheet className={`xl file-icon ${type}`} />
-      case 'image': return <Icons.Image className={`xl file-icon ${type}`} />
-      case 'folder': return <Icons.Folder className={`xl file-icon ${type}`} />
-      default: return <Icons.FileText className="xl file-icon" />
+async function readJsonResponse(res, fallbackMessage) {
+    let data = {}
+
+    try {
+        data = await res.json()
+    } catch {
+        data = {}
     }
-  }
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    const ext = file.name.split('.').pop().toLowerCase()
-    let type = 'pdf'
-    if (['xlsx','csv'].includes(ext)) type = 'spreadsheet'
-    else if (['png','jpg','jpeg','gif','webp'].includes(ext)) type = 'image'
-    const newFile = {
-      id: Date.now(),
-      name: file.name,
-      type,
-      size: `${(file.size / 1024).toFixed(0)} KB`,
-      modified: '방금',
-      pinned: false,
+    if (!res.ok) {
+        throw new Error(data.message || fallbackMessage)
     }
-    setFiles(prev => [...prev, newFile])
-    setShowFileModal(false)
-  }
 
-  const deleteFile = (id) => {
-    setFiles(prev => prev.filter(f => f.id !== id))
-    setOpenFileMenuId(null)
-  }
+    return data
+}
 
-  const togglePin = (id) => {
-    setFiles(prev => prev.map(f => f.id === id ? { ...f, pinned: !f.pinned } : f))
-    setOpenFileMenuId(null)
-  }
+async function apiGet(path) {
+    const res = await fetch(`${API_BASE}${path}`)
+    return readJsonResponse(res, `GET ${path} 실패`)
+}
 
-  const addPost = () => {
-    if (!newPost.title.trim()) return
-    const post = {
-      id: Date.now(),
-      title: newPost.title,
-      author: '홍길동',
-      date: new Date().toISOString().split('T')[0],
-      views: 0,
-      comments: 0,
-      pinned: false,
+function FileBoard({ mini = false, onSectionChange }) {
+    const [boards, setBoards] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
+
+    useEffect(() => {
+        loadBoards()
+    }, [])
+
+    async function loadBoards() {
+        try {
+            setLoading(true)
+            setError('')
+
+            const data = await apiGet('/api/boards')
+
+            if (Array.isArray(data)) {
+                setBoards(data)
+            } else {
+                setBoards(data.boards || [])
+            }
+        } catch (err) {
+            setError(err.message)
+            setBoards([])
+        } finally {
+            setLoading(false)
+        }
     }
-    setPosts(prev => [...prev, post])
-    setNewPost({ title: '', content: '' })
-    setShowPostModal(false)
-  }
 
-  const sortedFiles = [...files].sort((a, b) => b.pinned - a.pinned)
+    function handleGoBoard() {
+        if (typeof onSectionChange === 'function') {
+            onSectionChange('files')
+            return
+        }
 
-  return (
-    <div className="card">
-      <div className="card-header">
-        <div className="card-header-left">
-          <h3>게시판·자료실</h3>
-          <p>{activeTab === 'files' ? '파일 및 폴더 관리' : '게시판 글 목록'}</p>
-        </div>
-        <div className="files-header-actions">
-          {!mini && (
-            <div className="tab-pills">
-              <button className={`tab-pill ${activeTab==='files'?'active':''}`} onClick={() => setActiveTab('files')}>자료실</button>
-              <button className={`tab-pill ${activeTab==='board'?'active':''}`} onClick={() => setActiveTab('board')}>게시판</button>
+        alert('게시판으로 이동하려면 FileBoard에 onSectionChange를 전달해야 합니다.')
+    }
+
+    const recentBoards = boards.slice(0, mini ? 4 : 8)
+
+    return (
+        <div className="card">
+            <div className="card-header">
+                <div className="card-header-left">
+                    <h3>게시판·자료실</h3>
+                    <p>최근 게시글 및 첨부파일 현황</p>
+                </div>
+
+                <div className="files-header-actions">
+                    <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={loadBoards}
+                    >
+                        새로고침
+                    </button>
+
+                    <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={handleGoBoard}
+                    >
+                        게시판으로 이동
+                    </button>
+                </div>
             </div>
-          )}
-          {activeTab === 'files' ? (
-            <>
-              {!mini && (
-                <div className="view-toggle">
-                  <button className={`view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')}><Icons.Grid className="sm" /></button>
-                  <button className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}><Icons.List className="sm" /></button>
-                </div>
-              )}
-              <button className="btn btn-outline btn-sm" onClick={() => setShowFileModal(true)}>
-                <Icons.Upload className="sm" />업로드
-              </button>
-            </>
-          ) : (
-            <button className="btn btn-primary btn-sm" onClick={() => setShowPostModal(true)}>
-              <Icons.Plus className="sm" />글쓰기
-            </button>
-          )}
-        </div>
-      </div>
 
-      <div className="card-content">
-        {activeTab === 'files' ? (
-          viewMode === 'grid' ? (
-            <div className="files-grid">
-              {sortedFiles.map((file) => (
-                <div key={file.id} className="file-card" style={{position:'relative'}}>
-                  {file.pinned && <div className="pin-badge"><Icons.Pin className="xs" /></div>}
-                  <div className={`file-icon-wrapper ${file.type}`}><FileIcon type={file.type} /></div>
-                  <p className="file-name">{file.name}</p>
-                  <p className="file-meta">{file.size} - {file.modified}</p>
-                  <div className="file-card-actions">
-                    <button className="btn btn-icon btn-ghost xs" onClick={() => setOpenFileMenuId(openFileMenuId === file.id ? null : file.id)}><Icons.MoreHorizontal className="xs" /></button>
-                    {openFileMenuId === file.id && (
-                      <div className="dropdown-menu file-dropdown">
-                        <button className="dropdown-item" onClick={() => togglePin(file.id)}><Icons.Pin className="sm" /> {file.pinned ? '고정 해제' : '고정'}</button>
-                        <button className="dropdown-item" onClick={() => {}}><Icons.Download className="sm" /> 다운로드</button>
-                        <button className="dropdown-item danger" onClick={() => deleteFile(file.id)}><Icons.Trash className="sm" /> 삭제</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+            <div className="card-content">
+                {loading && (
+                    <p className="page-description">게시글을 불러오는 중...</p>
+                )}
+
+                {error && (
+                    <div className="page-error">{error}</div>
+                )}
+
+                {!loading && !error && recentBoards.length === 0 && (
+                    <div className="empty-state">등록된 게시글이 없습니다.</div>
+                )}
+
+                {!loading && !error && recentBoards.length > 0 && (
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
+                        }}
+                    >
+                        {recentBoards.map((board) => (
+                            <button
+                                key={board.board_id}
+                                type="button"
+                                onClick={handleGoBoard}
+                                style={{
+                                    width: '100%',
+                                    border: '1px solid #eef2f7',
+                                    background: '#ffffff',
+                                    borderRadius: '14px',
+                                    padding: '14px 16px',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '12px',
+                                }}
+                            >
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            marginBottom: '6px',
+                                        }}
+                                    >
+                                        <strong
+                                            style={{
+                                                color: '#111827',
+                                                fontSize: mini ? '15px' : '16px',
+                                                fontWeight: 700,
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                                display: 'block',
+                                                maxWidth: '100%',
+                                            }}
+                                        >
+                                            {board.title || '(제목 없음)'}
+                                        </strong>
+
+                                        {Number(board.file_count || 0) > 0 && (
+                                            <span
+                                                style={{
+                                                    color: '#475569',
+                                                    fontSize: '14px',
+                                                    flexShrink: 0,
+                                                }}
+                                            >
+                                                📎
+                                            </span>
+                                        )}
+
+                                        {Number(board.comment_count || 0) > 0 && (
+                                            <span
+                                                style={{
+                                                    color: '#4f46e5',
+                                                    fontSize: '14px',
+                                                    fontWeight: 700,
+                                                    flexShrink: 0,
+                                                }}
+                                            >
+                                                [{board.comment_count}]
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexWrap: 'wrap',
+                                            gap: '6px',
+                                            color: '#64748b',
+                                            fontSize: '13px',
+                                        }}
+                                    >
+                                        <span>{board.category || '일반'}</span>
+                                        <span>·</span>
+                                        <span>{board.author_name || board.author_id || '-'}</span>
+                                        <span>·</span>
+                                        <span>{board.created_at || '-'}</span>
+                                        <span>·</span>
+                                        <span>조회 {board.view_count ?? 0}</span>
+                                    </div>
+                                </div>
+
+                                <div
+                                    style={{
+                                        color: '#6b7280',
+                                        fontSize: '13px',
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    보기
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {!loading && !error && boards.length > recentBoards.length && (
+                    <div style={{ marginTop: '14px', textAlign: 'center' }}>
+                        <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={handleGoBoard}
+                        >
+                            전체 게시글 보기
+                        </button>
+                    </div>
+                )}
+
+                {/* 파일 업로드 모달 */}
+
+                {/* 게시글 작성 모달 */}
             </div>
-          ) : (
-            <div className="files-list">
-              {sortedFiles.map((file) => (
-                <div key={file.id} className="file-list-item">
-                  {file.pinned && <Icons.Pin className="sm" style={{color:'var(--primary)',marginRight:'4px'}} />}
-                  <div className={`file-list-icon file-icon-wrapper ${file.type}`}><FileIcon type={file.type} /></div>
-                  <div className="file-list-content">
-                    <p className="file-name">{file.name}</p>
-                    <p className="file-meta">{file.size}</p>
-                  </div>
-                  <span className="file-list-date">{file.modified}</span>
-                  <button className="btn btn-icon btn-ghost sm" onClick={() => {}}><Icons.Download className="sm" /></button>
-                  <div className="dropdown-wrapper">
-                    <button className="btn btn-icon btn-ghost sm file-list-more" onClick={() => setOpenFileMenuId(openFileMenuId === file.id ? null : file.id)}><Icons.MoreHorizontal className="sm" /></button>
-                    {openFileMenuId === file.id && (
-                      <div className="dropdown-menu">
-                        <button className="dropdown-item" onClick={() => togglePin(file.id)}><Icons.Pin className="sm" /> {file.pinned ? '고정 해제' : '고정'}</button>
-                        <button className="dropdown-item danger" onClick={() => deleteFile(file.id)}><Icons.Trash className="sm" /> 삭제</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )
-        ) : (
-          <div className="board-list">
-            {posts.map(post => (
-              <div key={post.id} className="board-item">
-                {post.pinned && <Icons.Pin className="sm pin-icon" />}
-                <div className="board-item-content">
-                  <p className="board-title">{post.title}</p>
-                  <div className="board-meta">
-                    <span>{post.author}</span>
-                    <span>·</span>
-                    <span>{post.date}</span>
-                    <span>·</span>
-                    <span>조회 {post.views}</span>
-                    <span>·</span>
-                    <span><Icons.MessageSquare className="xs" /> {post.comments}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 파일 업로드 모달 */}
-      <Modal isOpen={showFileModal} onClose={() => setShowFileModal(false)} title="파일 업로드">
-        <div className="upload-area" onClick={() => fileInputRef.current?.click()}>
-          <Icons.Upload />
-          <p>클릭하여 파일 선택</p>
-          <p className="file-meta">PDF, Excel, 이미지 등 지원</p>
-          <input ref={fileInputRef} type="file" style={{display:'none'}} onChange={handleFileUpload} />
         </div>
-        <div className="modal-footer">
-          <button className="btn btn-outline" onClick={() => setShowFileModal(false)}>취소</button>
-        </div>
-      </Modal>
-
-      {/* 게시글 작성 모달 */}
-      <Modal isOpen={showPostModal} onClose={() => setShowPostModal(false)} title="새 글 작성">
-        <div className="form-group">
-          <label>제목 *</label>
-          <input className="form-input" placeholder="제목을 입력하세요" value={newPost.title} onChange={e => setNewPost({...newPost, title: e.target.value})} />
-        </div>
-        <div className="form-group">
-          <label>내용</label>
-          <textarea className="form-input form-textarea" placeholder="내용을 입력하세요" value={newPost.content} onChange={e => setNewPost({...newPost, content: e.target.value})} rows={5} />
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-outline" onClick={() => setShowPostModal(false)}>취소</button>
-          <button className="btn btn-primary" onClick={addPost}>등록</button>
-        </div>
-      </Modal>
-    </div>
-  )
+    )
 }
 
 export default FileBoard
