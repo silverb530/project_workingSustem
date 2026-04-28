@@ -1,15 +1,16 @@
-﻿import Icons from './Icons'
+import { useState } from 'react'
+import Icons from './Icons'
 
-function Sidebar({ collapsed, onToggle, activeSection, onSectionChange }) {
+function Sidebar({ collapsed, onToggle, activeSection, onSectionChange, taskBadge = 0 }) {
   const navItems = [
     { id: 'dashboard', label: '대시보드', icon: Icons.LayoutDashboard },
-    { id: 'tasks', label: '업무관리', icon: Icons.CheckSquare, badge: 3 },
+    { id: 'tasks', label: '업무관리', icon: Icons.CheckSquare, badge: taskBadge },
     { id: 'chat', label: '실시간 채팅', icon: Icons.MessageCircle, badge: 3 },
     { id: 'files', label: '게시판·자료실', icon: Icons.FolderOpen },
     { id: 'meetings', label: '화상회의', icon: Icons.Video },
     { id: 'team', label: '팀원', icon: Icons.Users },
     { id: 'calendar', label: '캘린더', icon: Icons.Calendar },
-    { id: 'notice', label: '공지사항', icon: Icons.Bell },  // ✅ 추가
+    { id: 'notice', label: '공지사항', icon: Icons.Bell },
     { id: 'facegate', label: '안면인식 출퇴근', icon: Icons.Scan },
     { id: 'remote', label: '원격 PC 접속', icon: Icons.Monitor },
   ]
@@ -52,7 +53,7 @@ function Sidebar({ collapsed, onToggle, activeSection, onSectionChange }) {
             {!collapsed && (
               <>
                 <span className="nav-item-label">{item.label}</span>
-                {item.badge && <span className="nav-badge">{item.badge}</span>}
+                {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
               </>
             )}
           </button>

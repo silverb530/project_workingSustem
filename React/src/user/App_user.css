@@ -488,6 +488,7 @@ input {
    =============================== */
 .welcome-section {
     margin-bottom: 32px;
+    text-align: center;
 }
 
     .welcome-section h1 {
