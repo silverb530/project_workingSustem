@@ -11,15 +11,36 @@ import TeamSection from './TeamSection'
 import CalendarSection from './CalendarSection'
 import FaceGate from './FaceGate'
 import RemoteNode from './RemoteNode'
+import MyPage from './MyPage'
 import NoticeSection from './NoticeSection'
 
 // 관리자 게시판과 같은 게시판을 유저 페이지에서도 사용
 // 같은 /api/boards API를 사용하므로 관리자 게시판과 유저 게시판이 서로 연동됨
 import NoticeBoardPage from '../manager/manager_pages/NoticeBoardPage.jsx'
 
+const LOGIN_PATH = '/'
+
+function clearAuthStorage() {
+    localStorage.removeItem('loginUser')
+    localStorage.removeItem('user')
+    localStorage.removeItem('token')
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('jwt')
+    localStorage.removeItem('authToken')
+
+    sessionStorage.removeItem('loginUser')
+    sessionStorage.removeItem('user')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('accessToken')
+    sessionStorage.removeItem('jwt')
+    sessionStorage.removeItem('authToken')
+}
+
 function normalizeLoginUser(rawUser) {
     if (!rawUser) return null
+
     const employeeId = rawUser.employee_id ?? rawUser.id
+
     return {
         ...rawUser,
         employee_id: employeeId !== undefined && employeeId !== null ? Number(employeeId) : null,
@@ -29,30 +50,81 @@ function normalizeLoginUser(rawUser) {
     }
 }
 
+function normalizeList(data, key) {
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.[key])) return data[key]
+    if (Array.isArray(data?.data)) return data.data
+    if (Array.isArray(data?.result)) return data.result
+    return []
+}
+
+function getUnreadCountFromRoom(room) {
+    const value =
+        room.unread_count ??
+        room.unreadCount ??
+        room.unread ??
+        room.new_count ??
+        room.newCount ??
+        room.badge ??
+        0
+
+    const count = Number(value)
+
+    if (Number.isNaN(count)) {
+        return 0
+    }
+
+    return count
+}
+
 function App_user() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
     const [activeSection, setActiveSection] = useState('dashboard')
     const [currentUser, setCurrentUser] = useState(null)
     const [taskBadge, setTaskBadge] = useState(0)
+    const [chatBadge, setChatBadge] = useState(0)
+    const [authChecked, setAuthChecked] = useState(false)
 
     useEffect(() => {
         const savedUser = localStorage.getItem('loginUser') || localStorage.getItem('user')
+
         if (!savedUser) {
-            setCurrentUser(null)
+            clearAuthStorage()
+            window.location.replace(LOGIN_PATH)
             return
         }
 
         try {
-            setCurrentUser(normalizeLoginUser(JSON.parse(savedUser)))
+            const parsedUser = normalizeLoginUser(JSON.parse(savedUser))
+
+            if (!parsedUser || !parsedUser.employee_id) {
+                clearAuthStorage()
+                window.location.replace(LOGIN_PATH)
+                return
+            }
+
+            setCurrentUser(parsedUser)
+            setAuthChecked(true)
         } catch (error) {
             console.error('로그인 사용자 정보 파싱 실패:', error)
+            clearAuthStorage()
             setCurrentUser(null)
+            window.location.replace(LOGIN_PATH)
         }
     }, [])
 
+    function handleLogout() {
+        clearAuthStorage()
+        setCurrentUser(null)
+        window.location.replace(LOGIN_PATH)
+    }
+
     // 미처리 받은 요청 수 조회 (사이드바 뱃지용)
     const refreshTaskBadge = useCallback(async (dept) => {
-        if (!dept) return
+        if (!dept) {
+            setTaskBadge(0)
+            return
+        }
 
         try {
             const res = await fetch(`${API_BASE}/api/work-requests/received?department=${encodeURIComponent(dept)}`)
@@ -60,8 +132,37 @@ function App_user() {
 
             if (data.success) {
                 setTaskBadge((data.requests || []).filter(r => r.status === 'PENDING').length)
+            } else {
+                setTaskBadge(0)
             }
-        } catch { }
+        } catch {
+            setTaskBadge(0)
+        }
+    }, [])
+
+    // 실시간 채팅 안 읽은 메시지 수 조회 (사이드바 뱃지용)
+    const refreshChatBadge = useCallback(async (employeeId) => {
+        if (!employeeId) {
+            setChatBadge(0)
+            return
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/api/chatrooms?employee_id=${employeeId}`)
+            const data = await res.json()
+
+            if (!res.ok) {
+                setChatBadge(0)
+                return
+            }
+
+            const rooms = normalizeList(data, 'chatrooms')
+            const totalUnread = rooms.reduce((sum, room) => sum + getUnreadCountFromRoom(room), 0)
+
+            setChatBadge(totalUnread)
+        } catch {
+            setChatBadge(0)
+        }
     }, [])
 
     useEffect(() => {
@@ -70,12 +171,44 @@ function App_user() {
         }
     }, [currentUser?.department, refreshTaskBadge])
 
+    useEffect(() => {
+        if (currentUser?.employee_id) {
+            refreshChatBadge(currentUser.employee_id)
+
+            const timer = setInterval(() => {
+                refreshChatBadge(currentUser.employee_id)
+            }, 5000)
+
+            return () => clearInterval(timer)
+        }
+    }, [currentUser?.employee_id, refreshChatBadge])
+
+    const handleSectionChange = (section) => {
+        setActiveSection(section)
+
+        if (section === 'chat') {
+            setChatBadge(0)
+
+            if (currentUser?.employee_id) {
+                setTimeout(() => {
+                    refreshChatBadge(currentUser.employee_id)
+                }, 500)
+            }
+        }
+
+        if (section === 'tasks' && currentUser?.department) {
+            setTimeout(() => {
+                refreshTaskBadge(currentUser.department)
+            }, 500)
+        }
+    }
+
     const renderContent = () => {
         switch (activeSection) {
             case 'dashboard':
                 return (
                     <DashboardSection
-                        onSectionChange={setActiveSection}
+                        onSectionChange={handleSectionChange}
                         currentUser={currentUser}
                     />
                 )
@@ -130,14 +263,28 @@ function App_user() {
             case 'remote':
                 return <RemoteNode />
 
+            case 'mypage':
+                return (
+                    <MyPage
+                        currentUser={currentUser}
+                        onUserUpdated={(updatedUser) => {
+                            setCurrentUser(normalizeLoginUser(updatedUser))
+                        }}
+                    />
+                )
+
             default:
                 return (
                     <DashboardSection
-                        onSectionChange={setActiveSection}
+                        onSectionChange={handleSectionChange}
                         currentUser={currentUser}
                     />
                 )
         }
+    }
+
+    if (!authChecked) {
+        return null
     }
 
     return (
@@ -146,14 +293,16 @@ function App_user() {
                 collapsed={sidebarCollapsed}
                 onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
                 activeSection={activeSection}
-                onSectionChange={setActiveSection}
+                onSectionChange={handleSectionChange}
                 taskBadge={taskBadge}
+                chatBadge={chatBadge}
             />
 
             <Header
                 sidebarCollapsed={sidebarCollapsed}
                 onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                 currentUser={currentUser}
+                onLogout={handleLogout}
             />
 
             <main className={`main-content ${sidebarCollapsed ? 'collapsed' : ''}`}>

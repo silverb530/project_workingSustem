@@ -1,13 +1,21 @@
 ﻿import { useState } from 'react'
 import Icons from './Icons'
 
-function Sidebar({ collapsed, onToggle, activeSection, onSectionChange, taskBadge = 0 }) {
+function Sidebar({
+    collapsed,
+    onToggle,
+    activeSection,
+    onSectionChange,
+    taskBadge = 0,
+    chatBadge = 0,
+}) {
     const [boardOpen, setBoardOpen] = useState(true)
+    const [settingsOpen, setSettingsOpen] = useState(false)
 
     const navItems = [
         { id: 'dashboard', label: '대시보드', icon: Icons.LayoutDashboard },
         { id: 'tasks', label: '업무관리', icon: Icons.CheckSquare, badge: taskBadge },
-        { id: 'chat', label: '실시간 채팅', icon: Icons.MessageCircle, badge: 3 },
+        { id: 'chat', label: '실시간 채팅', icon: Icons.MessageCircle, badge: chatBadge },
         { id: 'meetings', label: '화상회의', icon: Icons.Video },
         { id: 'team', label: '팀원', icon: Icons.Users },
         { id: 'calendar', label: '캘린더', icon: Icons.Calendar },
@@ -21,6 +29,11 @@ function Sidebar({ collapsed, onToggle, activeSection, onSectionChange, taskBadg
         { name: '마케팅', colorClass: 'accent' },
         { name: '개발팀', colorClass: 'chart-3' },
     ]
+
+    function handleNavClick(sectionId) {
+        setSettingsOpen(false)
+        onSectionChange(sectionId)
+    }
 
     return (
         <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -49,14 +62,17 @@ function Sidebar({ collapsed, onToggle, activeSection, onSectionChange, taskBadg
                 {navItems.map((item) => (
                     <button
                         key={item.id}
-                        onClick={() => onSectionChange(item.id)}
+                        onClick={() => handleNavClick(item.id)}
                         className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
                     >
                         <item.icon />
+
                         {!collapsed && (
                             <>
                                 <span className="nav-item-label">{item.label}</span>
-                                {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
+                                {Number(item.badge || 0) > 0 && (
+                                    <span className="nav-badge">{item.badge}</span>
+                                )}
                             </>
                         )}
                     </button>
@@ -67,6 +83,8 @@ function Sidebar({ collapsed, onToggle, activeSection, onSectionChange, taskBadg
                         type="button"
                         className={`nav-item ${activeSection === 'files' ? 'active' : ''}`}
                         onClick={() => {
+                            setSettingsOpen(false)
+
                             if (collapsed) {
                                 onToggle()
                                 return
@@ -108,7 +126,7 @@ function Sidebar({ collapsed, onToggle, activeSection, onSectionChange, taskBadg
                         >
                             <button
                                 type="button"
-                                onClick={() => onSectionChange('files')}
+                                onClick={() => handleNavClick('files')}
                                 className={`sub-nav-item ${activeSection === 'files' ? 'active' : ''}`}
                                 style={{
                                     display: 'flex',
@@ -161,7 +179,32 @@ function Sidebar({ collapsed, onToggle, activeSection, onSectionChange, taskBadg
             )}
 
             <div className="sidebar-footer">
-                <button className="nav-item">
+                {!collapsed && settingsOpen && (
+                    <div className="settings-popover">
+                        <button
+                            className={`settings-popover-item ${activeSection === 'mypage' ? 'active' : ''}`}
+                            onClick={() => {
+                                onSectionChange('mypage')
+                                setSettingsOpen(false)
+                            }}
+                        >
+                            <Icons.Users className="sm" />
+                            <span>마이페이지</span>
+                        </button>
+                    </div>
+                )}
+
+                <button
+                    className={`nav-item ${settingsOpen || activeSection === 'mypage' ? 'active' : ''}`}
+                    onClick={() => {
+                        if (collapsed) {
+                            onToggle()
+                            return
+                        }
+
+                        setSettingsOpen(prev => !prev)
+                    }}
+                >
                     <Icons.Settings />
                     {!collapsed && <span className="nav-item-label">설정</span>}
                 </button>
