@@ -59,7 +59,7 @@ def get_sids_for_user(user_id):
 def push_notification_to_user(socketio, user_id, notification):
     """특정 유저에게 실시간 알림 push"""
     for sid in get_sids_for_user(user_id):
-        socketio.emit("new-notification", notification, to=sid)
+        socketio.emit("new-notification", notification, room=sid)
 
 
 def register_meeting_socket(socketio):

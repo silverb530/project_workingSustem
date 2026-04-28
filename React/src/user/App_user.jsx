@@ -126,8 +126,8 @@ function App_user() {
         localStorage.setItem('readNotifIds', JSON.stringify([...ids]))
     }
 
-    // 초기 알림 목록: API에서 기존 알림 로드
-    const fetchInitialNotifications = useCallback(async (employeeId) => {
+    // 알림 API 폴링 (3초마다 최신 알림 동기화)
+    const pollNotifications = useCallback(async (employeeId) => {
         if (!employeeId) return
 
         try {
@@ -154,11 +154,14 @@ function App_user() {
         }
     }, [])
 
-    // Socket.IO로 실시간 알림 수신
+    // 3초 폴링 + Socket.IO 실시간 push 병행
     useEffect(() => {
         if (!currentUser?.employee_id) return
 
-        fetchInitialNotifications(currentUser.employee_id)
+        const employeeId = currentUser.employee_id
+
+        pollNotifications(employeeId)
+        const timer = setInterval(() => pollNotifications(employeeId), 3000)
 
         const socket = io(API_BASE, {
             transports: ['websocket', 'polling'],
@@ -167,26 +170,27 @@ function App_user() {
 
         socket.on('connect', () => {
             socket.emit('register-online', {
-                user_id: currentUser.employee_id,
+                user_id: employeeId,
                 user_name: currentUser.name || '사용자',
             })
         })
 
+        // Socket.IO push 수신 시 즉시 반영 (폴링 간격 없이 즉각)
         socket.on('new-notification', (notification) => {
-            const readIds = readNotifIdsRef.current
             setNotifications(prev => {
                 const exists = prev.some(n => n.id === notification.id)
-                const enriched = { ...notification, read: readIds.has(String(notification.id)) }
                 if (exists) return prev
-                return [enriched, ...prev]
+                const readIds = readNotifIdsRef.current
+                return [{ ...notification, read: readIds.has(String(notification.id)) }, ...prev]
             })
         })
 
         return () => {
+            clearInterval(timer)
             socket.emit('unregister-online')
             socket.disconnect()
         }
-    }, [currentUser?.employee_id, currentUser?.name, fetchInitialNotifications])
+    }, [currentUser?.employee_id, currentUser?.name, pollNotifications])
 
     const handleMarkAllNotificationsRead = useCallback(() => {
         setNotifications(prev => {
