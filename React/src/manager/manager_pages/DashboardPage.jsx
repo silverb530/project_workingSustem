@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react'
 import '../App_manager.css'
 
-const API_BASE = 'http://localhost:5000'
+const API_BASE = `http://${window.location.hostname}:5000`
 const FILE_BASE = API_BASE
 const LOGIN_PATH = '/'
 
@@ -751,7 +751,7 @@ function ChatSection() {
                     time: log.time || log.send_at || '',
                     isMe: senderId === myId,
                     fileName: log.file_name || null,
-                    fileUrl: log.file_url ? `${FILE_BASE}${log.file_url}` : null,
+                    fileUrl: log.file_url ? makeFileUrl(log.file_url) : null,
                 }
             })
 
