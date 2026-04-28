@@ -1,223 +1,205 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import '../App_manager.css'
 
 const API_BASE = 'http://localhost:5000'
 
+function authHeaders() {
+    const token = localStorage.getItem('token')
+    return { Authorization: token ? `Bearer ${token}` : '' }
+}
+
 async function apiGet(path) {
-    const res = await fetch(`${API_BASE}${path}`)
+    const res = await fetch(`${API_BASE}${path}`, { headers: authHeaders() })
     const data = await res.json()
-
-    if (!res.ok) {
-        throw new Error(data.message || `GET ${path} 실패`)
-    }
-
+    if (!res.ok) throw new Error(data.message || `GET ${path} 실패`)
     return data
 }
 
-const Icons = {
-    Plus: ({ className = '' }) => (
-        <svg
-            className={`icon ${className}`}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M5 12h14" />
-            <path d="M12 5v14" />
-        </svg>
-    ),
+const STATUS_MAP = {
+    PRESENT: { label: '출근',  tone: 'green'   },
+    NORMAL:  { label: '정상',  tone: 'green'   },
+    LATE:    { label: '지각',  tone: 'orange'  },
+    ABSENT:  { label: '결근',  tone: 'red'     },
+    LEAVE:   { label: '휴가',  tone: 'blue'    },
 }
 
-function PageHeader({ title, description, actionText = '추가', onAction }) {
-    return (
-        <div className="page-header-block">
-            <div>
-                <h1 className="page-title">{title}</h1>
-                <p className="page-description">{description}</p>
-            </div>
+const STATUS_OPTIONS = ['', 'PRESENT', 'NORMAL', 'LATE', 'ABSENT', 'LEAVE']
 
-            <button className="btn btn-primary btn-sm" onClick={onAction}>
-                <Icons.Plus className="sm" />
-                {actionText}
-            </button>
-        </div>
-    )
-}
-
-function SummaryCards({ cards }) {
-    return (
-        <div className="summary-grid">
-            {cards.map((card) => (
-                <div className="summary-card" key={card.label}>
-                    <p className="summary-card-label">{card.label}</p>
-                    <p className="summary-card-value">{card.value}</p>
-                    <p className="summary-card-sub">{card.sub}</p>
-                </div>
-            ))}
-        </div>
-    )
-}
-
-function InfoCard({ title, desc, children }) {
-    return (
-        <div className="card">
-            <div className="card-header">
-                <div className="card-header-left">
-                    <h3>{title}</h3>
-                    <p>{desc}</p>
-                </div>
-            </div>
-
-            <div className="card-content">{children}</div>
-        </div>
-    )
-}
-
-function AdminTable({ columns, rows, loading }) {
-    return (
-        <div className="table-wrap">
-            <table className="admin-table">
-                <thead>
-                    <tr>
-                        {columns.map((col) => (
-                            <th key={col}>{col}</th>
-                        ))}
-                    </tr>
-                </thead>
-
-                <tbody>
-                    {loading && (
-                        <tr>
-                            <td colSpan={columns.length}>출퇴근 기록을 불러오는 중입니다.</td>
-                        </tr>
-                    )}
-
-                    {!loading && rows.length === 0 && (
-                        <tr>
-                            <td colSpan={columns.length}>출퇴근 기록이 없습니다.</td>
-                        </tr>
-                    )}
-
-                    {!loading &&
-                        rows.map((row, idx) => (
-                            <tr key={idx}>
-                                {row.map((cell, i) => (
-                                    <td key={i}>{cell}</td>
-                                ))}
-                            </tr>
-                        ))}
-                </tbody>
-            </table>
-        </div>
-    )
-}
-
-function StatusBadge({ children, tone = 'default' }) {
-    return <span className={`status-badge ${tone}`}>{children}</span>
-}
-
-function getStatusText(status) {
-    if (status === 'PRESENT') return '출근'
-    if (status === 'LATE') return '지각'
-    if (status === 'ABSENT') return '결근'
-    if (status === 'LEAVE') return '휴가'
-    if (status === 'NORMAL') return '정상'
-    return status || '-'
-}
-
-function getStatusTone(status) {
-    if (status === 'PRESENT' || status === 'NORMAL') return 'success'
-    if (status === 'LATE') return 'warning'
-    if (status === 'ABSENT') return 'danger'
-    return 'default'
+function StatusBadge({ value }) {
+    const info = STATUS_MAP[value] || { label: value || '-', tone: 'default' }
+    return <span className={`status-badge ${info.tone}`}>{info.label}</span>
 }
 
 function AttendanceLogPage() {
-    const [attendance, setAttendance] = useState([])
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState('')
+    const [records, setRecords]   = useState([])
+    const [loading, setLoading]   = useState(false)
+    const [error, setError]       = useState('')
 
-    useEffect(() => {
-        loadAttendance()
-    }, [])
+    const [inputName,   setInputName]   = useState('')
+    const [inputDate,   setInputDate]   = useState('')
+    const [inputStatus, setInputStatus] = useState('')
 
-    async function loadAttendance() {
+    const [filterName,   setFilterName]   = useState('')
+    const [filterDate,   setFilterDate]   = useState('')
+    const [filterStatus, setFilterStatus] = useState('')
+
+    const [page, setPage] = useState(1)
+    const PAGE_SIZE = 10
+
+    useEffect(() => { loadData() }, [])
+
+    async function loadData() {
         try {
             setLoading(true)
             setError('')
-
             const data = await apiGet('/api/attendance')
-
-            let list = []
-
-            if (Array.isArray(data)) {
-                list = data
-            } else if (Array.isArray(data.attendance)) {
-                list = data.attendance
-            } else if (Array.isArray(data.data)) {
-                list = data.data
-            } else if (Array.isArray(data.result)) {
-                list = data.result
-            }
-
-            setAttendance(list)
+            setRecords(Array.isArray(data.attendance) ? data.attendance : [])
         } catch (err) {
             setError(err.message)
-            setAttendance([])
+            setRecords([])
         } finally {
             setLoading(false)
         }
     }
 
-    const rows = attendance.map((item) => [
-        item.employee_name || item.name || `직원 ${item.employee_id}`,
-        item.work_date || '-',
-        item.check_in_time || '-',
-        item.check_out_time || '-',
-        <StatusBadge tone={getStatusTone(item.status)}>
-            {getStatusText(item.status)}
-        </StatusBadge>,
-    ])
+    function applySearch() {
+        setFilterName(inputName)
+        setFilterDate(inputDate)
+        setFilterStatus(inputStatus)
+        setPage(1)
+    }
 
-    const totalCount = attendance.length
+    function handleReset() {
+        setInputName(''); setInputDate(''); setInputStatus('')
+        setFilterName(''); setFilterDate(''); setFilterStatus('')
+        setPage(1)
+    }
 
-    const presentCount = attendance.filter((item) => {
-        return item.status === 'PRESENT' || item.status === 'NORMAL'
-    }).length
+    function handleKeyDown(e) {
+        if (e.key === 'Enter') applySearch()
+    }
 
-    const notCheckedOutCount = attendance.filter((item) => {
-        return item.check_in_time && !item.check_out_time
-    }).length
+    const filtered = useMemo(() => records.filter((r) => {
+        const nameMatch   = filterName   === '' || (r.employee_name || '').includes(filterName)
+        const dateMatch   = filterDate   === '' || (r.work_date || '') === filterDate
+        const statusMatch = filterStatus === '' || r.status === filterStatus
+        return nameMatch && dateMatch && statusMatch
+    }), [records, filterName, filterDate, filterStatus])
+
+    const totalPages   = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+    const pagedRecords = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
     return (
         <>
-            <PageHeader
-                title="출퇴근 기록"
-                description="데이터베이스에 저장된 출근, 퇴근 기록을 조회합니다."
-                actionText="새로고침"
-                onAction={loadAttendance}
-            />
-
-            <SummaryCards
-                cards={[
-                    { label: '전체 기록', value: totalCount, sub: 'DB 저장 기록 수' },
-                    { label: '출근 기록', value: presentCount, sub: 'PRESENT 상태 기준' },
-                    { label: '퇴근 미처리', value: notCheckedOutCount, sub: '퇴근 시간이 없는 기록' },
-                ]}
-            />
+            {/* 헤더 */}
+            <div className="att-page-header">
+                <div>
+                    <h1 className="att-page-title">출퇴근 기록</h1>
+                    <p className="att-page-date">전체 출퇴근 이력 조회</p>
+                </div>
+            </div>
 
             {error && <div className="page-error">{error}</div>}
 
-            <InfoCard title="출퇴근 이력 테이블" desc="직원명, 날짜, 출근 시각, 퇴근 시각, 판정을 표시합니다.">
-                <AdminTable
-                    columns={['직원명', '날짜', '출근 시각', '퇴근 시각', '판정']}
-                    rows={rows}
-                    loading={loading}
-                />
-            </InfoCard>
+            {/* 검색 */}
+            <div className="card">
+                <div className="card-content" style={{ paddingTop: 20 }}>
+                    <div className="emp-filter-row">
+                        <div className="filter-group">
+                            <span className="filter-label">이름</span>
+                            <input
+                                className="filter-input"
+                                placeholder="이름 입력"
+                                value={inputName}
+                                onChange={(e) => setInputName(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                            />
+                        </div>
+                        <div className="filter-group">
+                            <span className="filter-label">날짜</span>
+                            <input
+                                type="date"
+                                className="filter-input"
+                                value={inputDate}
+                                onChange={(e) => setInputDate(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                            />
+                        </div>
+                        <div className="filter-group">
+                            <span className="filter-label">상태</span>
+                            <select
+                                className="filter-select"
+                                value={inputStatus}
+                                onChange={(e) => setInputStatus(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                            >
+                                {STATUS_OPTIONS.map((s) => (
+                                    <option key={s} value={s}>
+                                        {s === '' ? '전체' : STATUS_MAP[s]?.label || s}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="filter-actions">
+                            <button className="btn btn-primary btn-sm emp-filter-btn" onClick={applySearch}>검색</button>
+                            <button className="btn btn-outline btn-sm emp-filter-btn" onClick={handleReset}>초기화</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* 테이블 */}
+            <div className="card">
+                <div className="card-header">
+                    <div className="card-header-left">
+                        <h3>출퇴근 기록</h3>
+                        <p>총 {filtered.length}건</p>
+                    </div>
+                </div>
+                <div className="card-content">
+                    <div className="table-wrap">
+                        <table className="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>이름</th>
+                                    <th>날짜</th>
+                                    <th>출근 시간</th>
+                                    <th>퇴근 시간</th>
+                                    <th>출근 방법</th>
+                                    <th>퇴근 방법</th>
+                                    <th>상태</th>
+                                    <th>비고</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading && <tr><td colSpan={8}>불러오는 중...</td></tr>}
+                                {!loading && filtered.length === 0 && <tr><td colSpan={8}>데이터가 없습니다.</td></tr>}
+                                {!loading && pagedRecords.map((r, i) => (
+                                    <tr key={i}>
+                                        <td>{r.employee_name || '-'}</td>
+                                        <td>{r.work_date || '-'}</td>
+                                        <td>{r.check_in_time || '-'}</td>
+                                        <td>{r.check_out_time || '-'}</td>
+                                        <td>{r.check_in_method || '-'}</td>
+                                        <td>{r.check_out_method || '-'}</td>
+                                        <td><StatusBadge value={r.status} /></td>
+                                        <td>{r.note || '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="pagination">
+                        <button onClick={() => setPage(1)} disabled={page === 1}>«</button>
+                        <button onClick={() => setPage((p) => p - 1)} disabled={page === 1}>‹</button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                            <button key={p} className={p === page ? 'active' : ''} onClick={() => setPage(p)}>{p}</button>
+                        ))}
+                        <button onClick={() => setPage((p) => p + 1)} disabled={page === totalPages}>›</button>
+                        <button onClick={() => setPage(totalPages)} disabled={page === totalPages}>»</button>
+                    </div>
+                </div>
+            </div>
         </>
     )
 }

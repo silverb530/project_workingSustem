@@ -2074,7 +2074,95 @@ input {
 .emp-filter-btn {
     flex-shrink: 0;
     height: 35px;
-    padding: 0 16px;
+    padding: 0 18px;
+    font-size: 13px;
+}
+
+/* ── 출퇴근 현황 페이지 ── */
+.att-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid #3b82f6;
+    border-radius: var(--radius);
+    padding: 20px 24px;
+}
+
+.att-page-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--foreground);
+    margin: 0 0 4px 0;
+}
+
+.att-page-date {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    margin: 0;
+}
+
+.att-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+}
+
+.att-summary-card {
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.att-summary-value {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    margin: 0;
+}
+
+.att-summary-label {
+    font-size: 13px;
+    margin: 0;
+}
+
+.att-summary-total  { background: #f1f5f9; color: #334155; }
+.att-summary-total .att-summary-value  { color: #1e293b; }
+
+.att-summary-in     { background: #dcfce7; color: #166534; }
+.att-summary-in .att-summary-value     { color: #15803d; }
+
+.att-summary-out    { background: #dbeafe; color: #1e40af; }
+.att-summary-out .att-summary-value    { color: #1d4ed8; }
+
+.att-summary-absent { background: #fef3c7; color: #92400e; }
+.att-summary-absent .att-summary-value { color: #b45309; }
+
+/* ── 미등록 인원 카운트 ── */
+.att-unreg-count {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #fef3c7;
+    border-radius: 10px;
+    padding: 10px 20px;
+    min-width: 72px;
+}
+
+.att-unreg-num {
+    font-size: 26px;
+    font-weight: 700;
+    color: #b45309;
+    line-height: 1;
+}
+
+.att-unreg-label {
+    font-size: 11px;
+    color: #92400e;
+    margin-top: 3px;
 }
 
 /* ── 필터 ── */
@@ -2086,10 +2174,25 @@ input {
 }
 
 .filter-group {
+    flex: 1;
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+}
+
+.filter-group .filter-input,
+.filter-group .filter-select {
+    flex: 1;
+    min-width: 0;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
 }
 
 .filter-label {

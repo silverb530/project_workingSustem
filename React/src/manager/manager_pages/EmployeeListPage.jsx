@@ -191,40 +191,48 @@ function EmployeeListPage() {
             <div className="card">
                 <div className="card-content" style={{ paddingTop: 20 }}>
                     <div className="emp-filter-row">
-                        <span className="filter-label">이름</span>
-                        <input
-                            className="filter-input"
-                            placeholder="이름 입력"
-                            value={inputName}
-                            onChange={(e) => setInputName(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                        />
-                        <span className="filter-label">권한구분</span>
-                        <select
-                            className="filter-select"
-                            value={inputRole}
-                            onChange={(e) => setInputRole(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                        >
-                            <option value="">전체</option>
-                            {ROLE_OPTIONS.filter(Boolean).map((r) => (
-                                <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
-                            ))}
-                        </select>
-                        <span className="filter-label">부서</span>
-                        <select
-                            className="filter-select"
-                            value={inputDept}
-                            onChange={(e) => setInputDept(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                        >
-                            <option value="">전체</option>
-                            {departmentOptions.map((d) => (
-                                <option key={d} value={d}>{d}</option>
-                            ))}
-                        </select>
-                        <button className="btn btn-primary btn-sm emp-filter-btn" onClick={applySearch}>검색</button>
-                        <button className="btn btn-secondary btn-sm emp-filter-btn" onClick={handleReset}>초기화</button>
+                        <div className="filter-group">
+                            <span className="filter-label">이름</span>
+                            <input
+                                className="filter-input"
+                                placeholder="이름 입력"
+                                value={inputName}
+                                onChange={(e) => setInputName(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                            />
+                        </div>
+                        <div className="filter-group">
+                            <span className="filter-label">권한구분</span>
+                            <select
+                                className="filter-select"
+                                value={inputRole}
+                                onChange={(e) => setInputRole(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                            >
+                                <option value="">전체</option>
+                                {ROLE_OPTIONS.filter(Boolean).map((r) => (
+                                    <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="filter-group">
+                            <span className="filter-label">부서</span>
+                            <select
+                                className="filter-select"
+                                value={inputDept}
+                                onChange={(e) => setInputDept(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                            >
+                                <option value="">전체</option>
+                                {departmentOptions.map((d) => (
+                                    <option key={d} value={d}>{d}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="filter-actions">
+                            <button className="btn btn-primary btn-sm emp-filter-btn" onClick={applySearch}>검색</button>
+                            <button className="btn btn-outline btn-sm emp-filter-btn" onClick={handleReset}>초기화</button>
+                        </div>
                     </div>
                 </div>
             </div>
