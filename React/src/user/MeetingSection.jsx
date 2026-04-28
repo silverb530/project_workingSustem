@@ -107,33 +107,6 @@ function MeetingSection({ mini = false }) {
         fetchMeetings();
     };
 
-    const startInstant = async () => {
-        setLoading(true);
-        try {
-            const res = await fetch(`${API}/api/meetings`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title:       '즉석 회의',
-                    host_id:     user.employee_id || 1,
-                    duration:    '30분',
-                    invited_ids: [],
-                }),
-            });
-            const data = await res.json();
-            if (data.success) {
-                await fetchMeetings();
-                const res2  = await fetch(`${API}/api/meetings?user_id=${user.employee_id}`);
-                const data2 = await res2.json();
-                const created = data2.meetings?.find(m => m.room_id === data.room_id);
-                if (created) enterMeeting(created);
-            }
-        } catch (e) {
-            console.error('즉석 회의 생성 실패:', e);
-        }
-        setLoading(false);
-    };
-
     const fmtTime = (scheduled_at) => {
         if (!scheduled_at) return '미정';
         const d = new Date(scheduled_at);
@@ -158,9 +131,11 @@ function MeetingSection({ mini = false }) {
     return (
         <div className={mini ? 'card' : 'content-wrapper'}>
             {!mini && (
-                <div className="welcome-section">
-                    <h1>화상회의</h1>
-                    <p>언제든지 팀원들과 연결하세요.</p>
+                <div className="team-page-header" style={{ marginBottom: 20 }}>
+                    <div>
+                        <h1 className="team-page-title">화상회의</h1>
+                        <p className="team-page-desc">언제든지 팀원들과 연결하세요.</p>
+                    </div>
                 </div>
             )}
 
@@ -171,18 +146,11 @@ function MeetingSection({ mini = false }) {
                         <p>회의 {meetings.length}건</p>
                     </div>
                     <button className="btn btn-primary btn-sm" onClick={openModal}>
-                        <Icons.Plus className="sm" />일정 추가
+                        <Icons.Plus className="sm" />회의 추가
                     </button>
                 </div>
 
                 <div className="card-content">
-                    {!mini && (
-                        <div className="meeting-actions">
-                            <button className="btn btn-outline" onClick={startInstant} disabled={loading}>
-                                <Icons.Video className="sm" />즉석 회의 시작
-                            </button>
-                        </div>
-                    )}
 
                     {listError && (
                         <div style={{ padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '13px', marginBottom: '8px' }}>
@@ -213,17 +181,17 @@ function MeetingSection({ mini = false }) {
                                         </div>
                                     </div>
                                     <button
-                                        className="btn btn-primary btn-sm meeting-join"
+                                        className="btn btn-primary btn-sm"
                                         onClick={() => enterMeeting(meeting)}
                                     >
                                         입장
                                     </button>
-                                    {!mini && meeting.host_id === user.employee_id && (
+                                    {!mini && (
                                         <button
-                                            className="btn btn-icon btn-ghost sm"
+                                            className="btn-leave-meeting btn-sm"
                                             onClick={(e) => deleteMeeting(meeting.room_id, e)}
                                         >
-                                            <Icons.Trash className="sm" />
+                                            퇴장
                                         </button>
                                     )}
                                 </div>

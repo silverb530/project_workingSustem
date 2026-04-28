@@ -189,8 +189,12 @@ function RegistFaceRecoPage() {
       `}</style>
 
             <div style={S.page}>
-                <h1 style={S.title}>얼굴 인식 등록</h1>
-                <p style={S.desc}>서버 카메라로 직원 얼굴을 촬영하여 출입 인식 DB에 등록합니다.</p>
+                <div className="att-page-header" style={{ marginBottom: 28 }}>
+                    <div>
+                        <h1 className="att-page-title">얼굴 인식 등록</h1>
+                        <p className="att-page-date">서버 카메라로 직원 얼굴을 촬영하여 출입 인식 DB에 등록합니다.</p>
+                    </div>
+                </div>
 
                 <div style={S.grid}>
                     {/* 카메라 카드 */}

@@ -269,9 +269,11 @@ function FaceGate() {
 
             <div style={S.wrap}>
               <div style={S.inner}>
-                <div style={S.header}>
-                    <h1 style={S.title}>안면인식 출퇴근</h1>
-                    <p style={S.subtitle}>👤 {user?.name} · {user?.employee_id}</p>
+                <div className="team-page-header" style={{ marginBottom: 24 }}>
+                    <div>
+                        <h1 className="team-page-title">안면인식 출퇴근</h1>
+                        <p className="team-page-desc">👤 {user?.name} · {user?.employee_id}</p>
+                    </div>
                 </div>
 
                 <div style={S.tabs}>
