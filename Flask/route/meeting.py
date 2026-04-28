@@ -158,70 +158,70 @@ def delete_meeting(room_id):
         if conn:
             conn.close()
 
-            # 화상회의 알림 조회 api
-            @meeting_bp.route("/api/meetings/notifications/<int:employee_id>", methods=["GET"])
-            def get_meeting_notifications(employee_id):
-                conn = None
 
-                try:
-                    conn = get_conn()
+@meeting_bp.route("/api/meetings/notifications/<int:employee_id>", methods=["GET"])
+def get_meeting_notifications(employee_id):
+    conn = None
 
-                    with conn.cursor() as cur:
-                        cur.execute(
-                            """
-                            SELECT
-                                r.room_id,
-                                r.title,
-                                r.host_id,
-                                e.name AS host_name,
-                                DATE_FORMAT(r.scheduled_at, '%%Y-%%m-%%d %%H:%%i') AS scheduled_at,
-                                DATE_FORMAT(r.created_at, '%%Y-%%m-%%d %%H:%%i') AS created_at,
-                                DATE_FORMAT(r.created_at, '%%m/%%d %%H:%%i') AS time
-                            FROM meeting_rooms r
-                            INNER JOIN meeting_invites mi
-                                ON r.room_id = mi.room_id
-                            LEFT JOIN employees e
-                                ON r.host_id = e.employee_id
-                            WHERE mi.employee_id = %s
-                              AND r.status != 'ended'
-                            ORDER BY r.created_at DESC
-                            LIMIT 20
-                            """,
-                            (employee_id,)
-                        )
+    try:
+        conn = get_conn()
 
-                        rows = cur.fetchall()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    r.room_id,
+                    r.title,
+                    r.host_id,
+                    e.name AS host_name,
+                    DATE_FORMAT(r.scheduled_at, '%%Y-%%m-%%d %%H:%%i') AS scheduled_at,
+                    DATE_FORMAT(r.created_at, '%%Y-%%m-%%d %%H:%%i') AS created_at,
+                    DATE_FORMAT(r.created_at, '%%m/%%d %%H:%%i') AS time
+                FROM meeting_rooms r
+                INNER JOIN meeting_invites mi
+                    ON r.room_id = mi.room_id
+                LEFT JOIN employees e
+                    ON r.host_id = e.employee_id
+                WHERE mi.employee_id = %s
+                  AND r.status != 'ended'
+                ORDER BY r.created_at DESC
+                LIMIT 20
+                """,
+                (employee_id,)
+            )
 
-                    notifications = []
+            rows = cur.fetchall()
 
-                    for row in rows:
-                        host_name = row.get("host_name") or "관리자"
-                        title = row.get("title") or "화상회의"
+        notifications = []
 
-                        notifications.append({
-                            "id": f"meeting-{row.get('room_id')}",
-                            "type": "MEETING_INVITE",
-                            "section": "meetings",
-                            "room_id": row.get("room_id"),
-                            "text": f"{host_name}님이 '{title}' 회의에 초대했습니다.",
-                            "time": row.get("time"),
-                            "created_at": row.get("created_at"),
-                            "read": False
-                        })
+        for row in rows:
+            host_name = row.get("host_name") or "관리자"
+            title = row.get("title") or "화상회의"
 
-                    return jsonify({
-                        "success": True,
-                        "notifications": notifications
-                    })
+            notifications.append({
+                "id": f"meeting-{row.get('room_id')}",
+                "type": "MEETING_INVITE",
+                "section": "meetings",
+                "room_id": row.get("room_id"),
+                "text": f"{host_name}님이 '{title}' 회의에 초대했습니다.",
+                "time": row.get("time"),
+                "created_at": row.get("created_at"),
+                "read": False
+            })
 
-                except Exception as e:
-                    print("화상회의 알림 조회 오류:", e)
-                    return jsonify({
-                        "success": False,
-                        "message": str(e),
-                        "notifications": []
-                    }), 500
+        return jsonify({
+            "success": True,
+            "notifications": notifications
+        })
 
-                finally:
-                    if conn:
-                        conn.close()
+    except Exception as e:
+        print("화상회의 알림 조회 오류:", e)
+        return jsonify({
+            "success": False,
+            "message": str(e),
+            "notifications": []
+        }), 500
+
+    finally:
+        if conn:
+            conn.close()

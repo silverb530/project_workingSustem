@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import './App_user.css'
 import { API_BASE } from '../config'
 import Sidebar from './Sidebar'
@@ -84,6 +84,8 @@ function App_user() {
     const [taskBadge, setTaskBadge] = useState(0)
     const [chatBadge, setChatBadge] = useState(0)
     const [authChecked, setAuthChecked] = useState(false)
+    const [notifications, setNotifications] = useState([])
+    const readNotifIdsRef = useRef(new Set(JSON.parse(localStorage.getItem('readNotifIds') || '[]')))
 
     useEffect(() => {
         const savedUser = localStorage.getItem('loginUser') || localStorage.getItem('user')
@@ -117,6 +119,68 @@ function App_user() {
         clearAuthStorage()
         setCurrentUser(null)
         window.location.replace(LOGIN_PATH)
+    }
+
+    const saveReadIds = (ids) => {
+        localStorage.setItem('readNotifIds', JSON.stringify([...ids]))
+    }
+
+    const fetchNotifications = useCallback(async (employeeId) => {
+        if (!employeeId) return
+
+        try {
+            const [chatRes, meetingRes] = await Promise.all([
+                fetch(`${API_BASE}/api/chat/notifications/${employeeId}`),
+                fetch(`${API_BASE}/api/meetings/notifications/${employeeId}`),
+            ])
+
+            const chatData = await chatRes.json()
+            const meetingData = await meetingRes.json()
+
+            const chatNotifs = chatData.success ? (chatData.notifications || []) : []
+            const meetingNotifs = meetingData.success ? (meetingData.notifications || []) : []
+
+            const readIds = readNotifIdsRef.current
+            const merged = [...meetingNotifs, ...chatNotifs].map(n => ({
+                ...n,
+                read: readIds.has(String(n.id)),
+            }))
+
+            setNotifications(merged)
+        } catch {
+            // 알림 조회 실패 시 무시
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!currentUser?.employee_id) return
+
+        fetchNotifications(currentUser.employee_id)
+
+        const timer = setInterval(() => {
+            fetchNotifications(currentUser.employee_id)
+        }, 10000)
+
+        return () => clearInterval(timer)
+    }, [currentUser?.employee_id, fetchNotifications])
+
+    const handleMarkAllNotificationsRead = useCallback(() => {
+        setNotifications(prev => {
+            prev.forEach(n => readNotifIdsRef.current.add(String(n.id)))
+            saveReadIds(readNotifIdsRef.current)
+            return prev.map(n => ({ ...n, read: true }))
+        })
+    }, [])
+
+    const handleNotificationClick = (notification) => {
+        readNotifIdsRef.current.add(String(notification.id))
+        saveReadIds(readNotifIdsRef.current)
+        setNotifications(prev =>
+            prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+        )
+        if (notification.section) {
+            handleSectionChange(notification.section)
+        }
     }
 
     // 미처리 받은 요청 수 조회 (사이드바 뱃지용)
@@ -303,6 +367,9 @@ function App_user() {
                 onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                 currentUser={currentUser}
                 onLogout={handleLogout}
+                notifications={notifications}
+                onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+                onNotificationClick={handleNotificationClick}
             />
 
             <main className={`main-content ${sidebarCollapsed ? 'collapsed' : ''}`}>

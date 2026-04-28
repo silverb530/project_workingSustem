@@ -772,118 +772,118 @@ def get_chat_file(message_id):
         if conn:
             conn.close()
 
-            # 채팅 알림 조회 api
-            @chat_bp.route("/notifications/<int:employee_id>", methods=["GET"])
-            def get_chat_notifications(employee_id):
-                conn = None
 
-                try:
-                    conn = get_conn()
+@chat_bp.route("/notifications/<int:employee_id>", methods=["GET"])
+def get_chat_notifications(employee_id):
+    conn = None
 
-                    with conn.cursor() as cur:
-                        cur.execute(
-                            """
-                            SELECT
-                                employee_id,
-                                name,
-                                department
-                            FROM employees
-                            WHERE employee_id = %s
-                            LIMIT 1
-                            """,
-                            (employee_id,)
-                        )
+    try:
+        conn = get_conn()
 
-                        me = cur.fetchone()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    employee_id,
+                    name,
+                    department
+                FROM employees
+                WHERE employee_id = %s
+                LIMIT 1
+                """,
+                (employee_id,)
+            )
 
-                        if not me:
-                            return jsonify({
-                                "success": False,
-                                "message": "직원 정보를 찾을 수 없습니다.",
-                                "notifications": []
-                            }), 404
+            me = cur.fetchone()
 
-                        cur.execute(
-                            """
-                            SELECT
-                                cm.message_id,
-                                cm.room_id,
-                                r.room_name,
-                                cm.sender_id,
-                                e.name AS sender_name,
-                                cm.content,
-                                DATE_FORMAT(cm.send_at, '%%Y-%%m-%%d %%H:%%i') AS created_at,
-                                DATE_FORMAT(cm.send_at, '%%m/%%d %%H:%%i') AS time
-                            FROM chat_messages cm
-                            INNER JOIN chat_room_members crm
-                                ON cm.room_id = crm.room_id
-                            INNER JOIN chat_rooms r
-                                ON cm.room_id = r.room_id
-                            LEFT JOIN employees e
-                                ON cm.sender_id = e.employee_id
-                            WHERE crm.employee_id = %s
-                              AND cm.sender_id != %s
-                              AND IFNULL(cm.is_deleted, 0) = 0
-                              AND IFNULL(r.deleted_id, 0) = 0
-                            ORDER BY cm.message_id DESC
-                            LIMIT 20
-                            """,
-                            (employee_id, employee_id)
-                        )
+            if not me:
+                return jsonify({
+                    "success": False,
+                    "message": "직원 정보를 찾을 수 없습니다.",
+                    "notifications": []
+                }), 404
 
-                        rows = cur.fetchall()
+            cur.execute(
+                """
+                SELECT
+                    cm.message_id,
+                    cm.room_id,
+                    r.room_name,
+                    cm.sender_id,
+                    e.name AS sender_name,
+                    cm.content,
+                    DATE_FORMAT(cm.send_at, '%%Y-%%m-%%d %%H:%%i') AS created_at,
+                    DATE_FORMAT(cm.send_at, '%%m/%%d %%H:%%i') AS time
+                FROM chat_messages cm
+                INNER JOIN chat_room_members crm
+                    ON cm.room_id = crm.room_id
+                INNER JOIN chat_rooms r
+                    ON cm.room_id = r.room_id
+                LEFT JOIN employees e
+                    ON cm.sender_id = e.employee_id
+                WHERE crm.employee_id = %s
+                  AND cm.sender_id != %s
+                  AND IFNULL(cm.is_deleted, 0) = 0
+                  AND IFNULL(r.deleted_id, 0) = 0
+                ORDER BY cm.message_id DESC
+                LIMIT 20
+                """,
+                (employee_id, employee_id)
+            )
 
-                    my_name = me.get("name") or ""
-                    my_department = me.get("department") or ""
+            rows = cur.fetchall()
 
-                    notifications = []
+        my_name = me.get("name") or ""
+        my_department = me.get("department") or ""
 
-                    for row in rows:
-                        content = row.get("content") or ""
-                        sender_name = row.get("sender_name") or "알 수 없음"
-                        room_name = row.get("room_name") or "채팅방"
+        notifications = []
 
-                        mention_targets = []
+        for row in rows:
+            content = row.get("content") or ""
+            sender_name = row.get("sender_name") or "알 수 없음"
+            room_name = row.get("room_name") or "채팅방"
 
-                        if my_name:
-                            mention_targets.append(f"@{my_name}")
+            mention_targets = []
 
-                        if my_department:
-                            mention_targets.append(f"@{my_department}")
+            if my_name:
+                mention_targets.append(f"@{my_name}")
 
-                        is_mention = any(target in content for target in mention_targets)
+            if my_department:
+                mention_targets.append(f"@{my_department}")
 
-                        notification_type = "CHAT_MENTION" if is_mention else "CHAT_MESSAGE"
+            is_mention = any(target in content for target in mention_targets)
 
-                        if is_mention:
-                            text = f"{sender_name}님이 {room_name}에서 나를 태그했습니다."
-                        else:
-                            text = f"{sender_name}님이 {room_name}에 새 메시지를 보냈습니다."
+            notification_type = "CHAT_MENTION" if is_mention else "CHAT_MESSAGE"
 
-                        notifications.append({
-                            "id": f"chat-{row.get('message_id')}",
-                            "type": notification_type,
-                            "section": "chat",
-                            "room_id": row.get("room_id"),
-                            "text": text,
-                            "time": row.get("time"),
-                            "created_at": row.get("created_at"),
-                            "read": False
-                        })
+            if is_mention:
+                text = f"{sender_name}님이 {room_name}에서 나를 태그했습니다."
+            else:
+                text = f"{sender_name}님이 {room_name}에 새 메시지를 보냈습니다."
 
-                    return jsonify({
-                        "success": True,
-                        "notifications": notifications
-                    })
+            notifications.append({
+                "id": f"chat-{row.get('message_id')}",
+                "type": notification_type,
+                "section": "chat",
+                "room_id": row.get("room_id"),
+                "text": text,
+                "time": row.get("time"),
+                "created_at": row.get("created_at"),
+                "read": False
+            })
 
-                except Exception as e:
-                    print("채팅 알림 조회 오류:", e)
-                    return jsonify({
-                        "success": False,
-                        "message": str(e),
-                        "notifications": []
-                    }), 500
+        return jsonify({
+            "success": True,
+            "notifications": notifications
+        })
 
-                finally:
-                    if conn:
-                        conn.close()
+    except Exception as e:
+        print("채팅 알림 조회 오류:", e)
+        return jsonify({
+            "success": False,
+            "message": str(e),
+            "notifications": []
+        }), 500
+
+    finally:
+        if conn:
+            conn.close()
