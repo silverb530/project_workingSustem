@@ -3,6 +3,7 @@ import '../App_manager.css'
 
 const API_BASE = 'http://localhost:5000'
 const FILE_BASE = API_BASE
+const ROOM_PAGE_SIZE = 10 //채팅 로그 때 추가
 
 async function apiGet(path) {
     const res = await fetch(`${API_BASE}${path}`)
@@ -55,6 +56,21 @@ function normalizeList(data, key) {
     if (Array.isArray(data?.data)) return data.data
     if (Array.isArray(data?.result)) return data.result
     return []
+}
+
+//채팅 로그 때 추가
+function normalizeRoomType(type) {
+    const value = String(type || '').toUpperCase()
+
+    if (value === 'DIRECT' || value === 'PRIVATE' || value === 'DM') {
+        return 'DIRECT'
+    }
+
+    return 'GROUP'
+}
+//채팅 로그 때 추가
+function getRoomTypeLabel(type) {
+    return normalizeRoomType(type) === 'DIRECT' ? '개인' : '그룹'
 }
 
 function getLoginUser() {
@@ -179,11 +195,17 @@ function ChatSection({ showRoomManager }) {
 
     const [channels, setChannels] = useState([])
     const [employees, setEmployees] = useState([])
+    const [roomPage, setRoomPage] = useState(1) //채팅 로그 때 추가
     const [selectedMemberIds, setSelectedMemberIds] = useState([])
     const [newRoomName, setNewRoomName] = useState('')
     const [roomMessage, setRoomMessage] = useState('')
 
     const emojiList = ['😀', '😂', '😎', '👍', '🔥', '❤️', '👏', '🎉']
+
+    //채팅 로그 때 추가
+    const [detailOpen, setDetailOpen] = useState(false)
+    const [selectedRoom, setSelectedRoom] = useState(null) 
+    const [detailMessages, setDetailMessages] = useState([])
 
     useEffect(() => {
         loadChatRooms()
@@ -211,44 +233,44 @@ function ChatSection({ showRoomManager }) {
             setEmployees([])
         }
     }
-
+    //관리자 채팅 로그 확인 때, 추가
     async function loadChatRooms() {
         try {
             setError('')
 
-            if (!loginUserId) {
-                setError('로그인 사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.')
-                setChannels([])
-                setActiveRoomId(null)
-                setActiveChannel('')
-                setMessages([])
-                return
-            }
-
-            const data = await apiGet(`/api/chatrooms?employee_id=${loginUserId}`)
+            // 관리자 전체 채팅 페이지이므로 employee_id 없이 전체 채팅방 조회
+            const data = await apiGet('/api/chatrooms')
             const rooms = normalizeList(data, 'chatrooms')
 
-            const converted = rooms.map((room) => ({
-                id: room.room_id,
-                name: room.room_name,
-                unread: 0,
-            }))
+            const converted = rooms.map((room) => {
+              const rawType =
+                room.room_type ||
+                room.type ||
+                room.roomType ||
+                room.chat_type ||
+                room.chatType ||
+               'GROUP'
+
+               return {
+                   id: room.room_id || room.id,
+                   name: room.room_name || room.name || `채팅방 ${room.room_id || room.id}`,
+                   type: normalizeRoomType(rawType),
+                   createdAt: room.created_at || room.createdAt || '',
+                   deletedId: room.deleted_id ?? 0,
+                   unread: 0,
+               }
+            }).filter((room) => room.id && Number(room.deletedId) === 0)
 
             setChannels(converted)
+            setRoomPage(1)//채팅 로그 때 추가
 
             if (converted.length > 0) {
-                setActiveRoomId((prevRoomId) => {
-                    const exists = converted.some((room) => room.id === prevRoomId)
+                const selectedRoom =
+                    converted.find((room) => String(room.id) === String(activeRoomId)) ||
+                    converted[0]
 
-                    if (exists) {
-                        const currentRoom = converted.find((room) => room.id === prevRoomId)
-                        setActiveChannel(currentRoom.name)
-                        return prevRoomId
-                    }
-
-                    setActiveChannel(converted[0].name)
-                    return converted[0].id
-                })
+                setActiveRoomId(selectedRoom.id)
+                setActiveChannel(selectedRoom.name)
             } else {
                 setActiveRoomId(null)
                 setActiveChannel('')
@@ -458,186 +480,261 @@ function ChatSection({ showRoomManager }) {
             handleSend()
         }
     }
+    //채팅 로그 때 수정
+   async function handleRoomTitleClick(room) {
+    try {
+        setError('')
 
-    function handleChannelClick(channel) {
-        setActiveChannel(channel.name)
-        setActiveRoomId(channel.id)
+        setSelectedRoom(room)
+        setActiveChannel(room.name)
+        setActiveRoomId(room.id)
+        setDetailOpen(true)
+
+        const data = await apiGet(`/api/chatlogs?room_id=${room.id}`)
+        const rows = normalizeList(data, 'chatlogs')
+
+        const converted = rows.map((log) => ({
+            id: log.id || log.message_id || log.chat_id,
+            roomId: log.room_id,
+            senderId: log.sender_id,
+            userName: log.user || log.name || log.sender_name || String(log.sender_id || '알 수 없음'),
+            content: log.message || log.content || '',
+            time: log.time || log.send_at || '',
+            messageType: log.message_type || 'TEXT',
+            fileName: log.file_name || '',
+            fileUrl: log.file_url ? `${FILE_BASE}${log.file_url}` : '',
+            mimeType: log.mime_type || '',
+            isNotice: Number(log.is_notice || 0) === 1,
+        }))
+
+        setDetailMessages(converted)
+    } catch (err) {
+        setError(err.message)
+        setDetailMessages([])
     }
+   }
 
+   //채팅 로그 때 추가
+   function closeDetailView() {
+    setDetailOpen(false)
+    setSelectedRoom(null)
+    setDetailMessages([])
+   }
+   //채팅 로그 때 추가
+   const totalRoomPages = Math.max(1, Math.ceil(channels.length / ROOM_PAGE_SIZE))
+
+   const safeRoomPage = Math.min(roomPage, totalRoomPages)
+
+   const pagedChannels = channels.slice(
+       (safeRoomPage - 1) * ROOM_PAGE_SIZE,
+       safeRoomPage * ROOM_PAGE_SIZE
+   )
+
+   const roomPageNumbers = Array.from(
+       { length: totalRoomPages },
+       (_, index) => index + 1
+   )//채팅 로그 때 추가
+
+
+   //채팅 로그 때 대대적으로 수정
     return (
-        <div className="card chat-card">
-            <div className="chat-header">
-                <div className="chat-header-left">
-                    <h3>채팅</h3>
+    <div className="admin-chat-log-page">
+        <div className="admin-chat-log-list-card">
+            <div className="admin-chat-log-toolbar">
+                <h3>채팅 로그</h3>
 
-                    <div className="chat-channel-badge">
-                        <Icons.Hash className="sm" />
-                        <span>{activeChannel || '채팅방 없음'}</span>
-                    </div>
-                </div>
-
-                <div className="channel-tabs">
-                    {channels.map((channel) => (
-                        <button
-                            key={channel.id}
-                            onClick={() => handleChannelClick(channel)}
-                            className={`channel-tab ${activeChannel === channel.name ? 'active' : ''}`}
-                        >
-                            #{channel.name}
-                        </button>
-                    ))}
+                <div className="admin-chat-log-search">
+                    <input
+                        type="text"
+                        placeholder="채팅방명 검색"
+                    />
                 </div>
             </div>
-
-            {showRoomManager && (
-                <div className="chat-room-manager">
-                    <div className="chat-room-create">
-                        <input
-                            className="admin-input"
-                            placeholder="새 채팅방 이름"
-                            value={newRoomName}
-                            onChange={(e) => setNewRoomName(e.target.value)}
-                        />
-
-                        <button className="btn btn-primary btn-sm" onClick={handleCreateRoom}>
-                            생성
-                        </button>
-                    </div>
-
-                    <div className="chat-room-member-select">
-                        <p className="chat-room-member-title">초대할 직원 선택</p>
-
-                        <div className="chat-room-member-list">
-                            {employees.map((emp) => {
-                                const employeeId = emp.employee_id || emp.employeeId || emp.id
-                                const checked = selectedMemberIds.includes(employeeId)
-                                const isMe = String(employeeId) === String(loginUserId)
-
-                                return (
-                                    <label key={employeeId} className={`chat-room-member-option ${isMe ? 'disabled' : ''}`}>
-                                        <input
-                                            type="checkbox"
-                                            checked={checked || isMe}
-                                            disabled={isMe}
-                                            onChange={() => toggleMember(employeeId)}
-                                        />
-
-                                        <span>
-                                            {emp.name || '-'} / {emp.department || '-'} / {emp.position || '-'}
-                                            {isMe ? ' (나)' : ''}
-                                        </span>
-                                    </label>
-                                )
-                            })}
-
-                            {employees.length === 0 && (
-                                <div className="empty-state">직원 목록이 없습니다.</div>
-                            )}
-                        </div>
-                    </div>
-
-                    {roomMessage && <div className="page-success">{roomMessage}</div>}
-
-                    <div className="chat-room-list">
-                        {channels.map((room) => (
-                            <div key={room.id} className="chat-room-item">
-                                <span>#{room.name}</span>
-
-                                <button
-                                    className="btn btn-destructive btn-sm"
-                                    onClick={() => handleDeleteRoom(room.id)}
-                                >
-                                    삭제
-                                </button>
-                            </div>
-                        ))}
-
-                        {channels.length === 0 && (
-                            <div className="empty-state">초대된 채팅방이 없습니다.</div>
-                        )}
-                    </div>
-                </div>
-            )}
 
             {error && <div className="page-error">{error}</div>}
 
-            <div className="chat-messages">
-                {messages.map((msg) => (
-                    <div key={msg.id} className={`message ${msg.isMe ? 'mine' : ''}`}>
-                        <Avatar src={msg.user.avatar} name={msg.user.name} />
+            <div className="admin-chat-log-table-wrap">
+                <table className="admin-chat-log-table">
+                    <thead>
+                        <tr>
+                            <th className="check-col">
+                                <input type="checkbox" />
+                            </th>
+                            <th>채팅방명 / 제목</th>
+                            <th>개인 / 그룹</th>
+                            <th>생성일자</th>
+                        </tr>
+                    </thead>
 
-                        <div className="message-content">
-                            <div className="message-header">
-                                <span className="message-name">{msg.user.name}</span>
-                                <span className="message-time">{msg.time}</span>
-                            </div>
+                    <tbody>
+                       {pagedChannels.map((room) => (
+                            <tr key={room.id}>
+                                <td>
+                                    <input type="checkbox" />
+                                </td>
 
-                            {msg.content && <div className="message-bubble">{msg.content}</div>}
+                                <td>
+                                    <button
+                                        type="button"
+                                        className="admin-chat-room-title-btn"
+                                        onClick={() => handleRoomTitleClick(room)}
+                                    >
+                                        {room.name}
+                                    </button>
+                                </td>
 
-                            {msg.fileUrl && (
-                                <a
-                                    href={msg.fileUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="chat-file-link"
-                                    download
-                                >
-                                    📎 {msg.fileName}
-                                </a>
-                            )}
+                                <td>
+                                    <span className={`admin-room-type-badge ${normalizeRoomType(room.type).toLowerCase()}`}>
+                                        {getRoomTypeLabel(room.type)}
+                                    </span>
+                                </td>
 
-                            <button
-                                className="btn btn-outline btn-sm chat-delete-btn"
-                                onClick={() => handleDeleteChat(msg.id)}
-                            >
-                                삭제
-                            </button>
-                        </div>
-                    </div>
+                                <td>
+                                    {room.createdAt
+                                        ? String(room.createdAt).slice(0, 16)
+                                        : '-'}
+                                </td>
+                            </tr>
+                        ))}
+
+                        {channels.length === 0 && (
+                            <tr>
+                                <td colSpan="4" className="admin-chat-log-empty">
+                                    생성된 채팅방이 없습니다.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            <div className="admin-chat-log-pagination">
+               <button
+                  type="button"
+                  onClick={() => setRoomPage(1)}
+                  disabled={safeRoomPage === 1}
+               >
+                    ≪
+               </button>
+
+               <button
+                   type="button"
+                   onClick={() => setRoomPage((prev) => Math.max(1, prev - 1))}
+                   disabled={safeRoomPage === 1}
+                >
+                    ‹
+                </button>
+
+                {roomPageNumbers.map((page) => (
+                   <button
+                        key={page}
+                        type="button"
+                        className={safeRoomPage === page ? 'active' : ''}
+                        onClick={() => setRoomPage(page)}
+                   >
+                       {page}
+                   </button>
                 ))}
 
-                {messages.length === 0 && !error && (
-                    <div className="empty-state">채팅 내역이 없습니다.</div>
-                )}
-            </div>
+                <button
+                    type="button"
+                    onClick={() => setRoomPage((prev) => Math.min(totalRoomPages, prev + 1))}
+                    disabled={safeRoomPage === totalRoomPages}
+                >
+                    ›
+                </button>
 
-            <div className="chat-input-wrapper">
-                {showEmoji && (
-                    <div className="emoji-picker">
-                        {emojiList.map((emoji) => (
-                            <button key={emoji} className="emoji-btn" onClick={() => addEmoji(emoji)}>
-                                {emoji}
-                            </button>
-                        ))}
-                    </div>
-                )}
-
-                <div className="chat-input">
-                    <label className="btn btn-icon btn-ghost sm clip-upload-label">
-                        <Icons.Paperclip className="sm" />
-                        <input type="file" hidden onChange={handleUploadChatFile} />
-                    </label>
-
-                    <input
-                        type="text"
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="메시지를 입력하세요."
-                        disabled={!activeRoomId}
-                    />
-
-                    <button className="btn btn-icon btn-ghost sm" onClick={() => setShowEmoji((prev) => !prev)}>
-                        <Icons.Smile className="sm" />
-                    </button>
-
-                    <button className="btn btn-primary btn-icon sm" onClick={handleSend}>
-                        <Icons.Send className="sm" />
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    onClick={() => setRoomPage(totalRoomPages)}
+                    disabled={safeRoomPage === totalRoomPages}
+                >
+                    ≫
+                </button>
             </div>
         </div>
-    )
+
+        {detailOpen && selectedRoom && (
+            <div className="admin-chat-detail-overlay">
+                <div className="admin-chat-detail-card">
+                    <div className="admin-chat-detail-header">
+                        <div>
+                            <h3>{selectedRoom.name}</h3>
+                            <p>채팅방 ID: {selectedRoom.id}</p>
+                        </div>
+
+                        <button
+                            type="button"
+                            className="admin-chat-detail-close"
+                            onClick={closeDetailView}
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <div className="admin-chat-detail-table-wrap">
+                        <table className="admin-chat-detail-table">
+                            <thead>
+                                <tr>
+                                    <th>이름</th>
+                                    <th>내용</th>
+                                    <th>입력 날짜/시간</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {detailMessages.map((msg) => (
+                                    <tr key={msg.id}>
+                                        <td>{msg.userName}</td>
+
+                                        <td>
+                                            {msg.messageType === 'FILE' ? (
+                                                <div className="admin-detail-file-row">
+                                                    <span>
+                                                        📎 {msg.fileName || msg.content || '첨부 파일'}
+                                                    </span>
+
+                                                    {msg.fileUrl && (
+                                                        <a
+                                                            href={msg.fileUrl}
+                                                            download
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                        >
+                                                            다운로드
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                msg.content
+                                            )}
+
+                                            {msg.isNotice && (
+                                                <span className="admin-detail-notice-badge">
+                                                    공지
+                                                </span>
+                                            )}
+                                        </td>
+
+                                        <td>{msg.time ? String(msg.time).slice(0, 19) : '-'}</td>
+                                    </tr>
+                                ))}
+
+                                {detailMessages.length === 0 && (
+                                    <tr>
+                                        <td colSpan="3" className="admin-chat-log-empty">
+                                            채팅 내역이 없습니다.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        )}
+    </div>
+   )
 }
 
 function AllChatPage() {

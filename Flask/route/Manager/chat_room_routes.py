@@ -18,6 +18,7 @@ def get_chatrooms():
                 cur.execute("""
                     SELECT
                         cr.room_id,
+                        cr.room_type,
                         cr.room_name,
                         cr.deleted_id,
                         cr.created_at
@@ -32,6 +33,7 @@ def get_chatrooms():
                 cur.execute("""
                     SELECT
                         room_id,
+                        room_type,
                         room_name,
                         deleted_id,
                         created_at
