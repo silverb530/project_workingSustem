@@ -3,6 +3,8 @@ from werkzeug.utils import secure_filename
 from db import get_conn
 import os
 import time
+from extensions import get_socketio
+from meeting_socket import push_notification_to_user
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/api/chat")
 
@@ -385,7 +387,50 @@ def send_message():
 
             message_id = cur.lastrowid
 
+            # 발신자 이름 조회
+            cur.execute("SELECT name, department FROM employees WHERE employee_id = %s LIMIT 1", (sender_id,))
+            sender_row = cur.fetchone()
+            sender_name = sender_row.get("name", "알 수 없음") if sender_row else "알 수 없음"
+            sender_dept = sender_row.get("department", "") if sender_row else ""
+
+            # 방 이름 조회
+            cur.execute("SELECT room_name FROM chat_rooms WHERE room_id = %s LIMIT 1", (room_id,))
+            room_row = cur.fetchone()
+            room_name = room_row.get("room_name", "채팅방") if room_row else "채팅방"
+
+            # 방 멤버 조회 (발신자 제외)
+            cur.execute(
+                "SELECT employee_id FROM chat_room_members WHERE room_id = %s AND employee_id != %s",
+                (room_id, sender_id)
+            )
+            recipient_rows = cur.fetchall()
+
         conn.commit()
+
+        # 실시간 알림 push (발신자 제외 멤버 전원)
+        sio = get_socketio()
+        if sio and recipient_rows:
+            mention_targets = [f"@{sender_name}"]
+            if sender_dept:
+                mention_targets.append(f"@{sender_dept}")
+            is_mention = any(t in content for t in mention_targets)
+            notif_type = "CHAT_MENTION" if is_mention else "CHAT_MESSAGE"
+            notif_text = (
+                f"{sender_name}님이 {room_name}에서 나를 태그했습니다."
+                if is_mention
+                else f"{sender_name}님이 {room_name}에 새 메시지를 보냈습니다."
+            )
+            notification = {
+                "id": f"chat-{message_id}",
+                "type": notif_type,
+                "section": "chat",
+                "room_id": room_id,
+                "text": notif_text,
+                "time": "",
+                "read": False,
+            }
+            for row in recipient_rows:
+                push_notification_to_user(sio, row["employee_id"], notification)
 
         return ok(message_id=message_id)
 

@@ -60,6 +60,10 @@ socketio = SocketIO(
     cors_allowed_origins=ALLOWED_ORIGINS
 )
 
+# route에서 socketio를 import해서 쓸 수 있도록 노출
+from extensions import set_socketio
+set_socketio(socketio)
+
 # 서버가 잘 돌아가는지 확인하는 기본 주소
 @app.route('/')
 def home():

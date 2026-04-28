@@ -48,6 +48,20 @@ def emit_presence_counts(socketio):
     socketio.emit("presence-counts", get_presence_counts())
 
 
+def get_sids_for_user(user_id):
+    """특정 유저 ID에 연결된 모든 socket ID 반환"""
+    return [
+        sid for sid, info in online_users.items()
+        if str(info.get("user_id")) == str(user_id)
+    ]
+
+
+def push_notification_to_user(socketio, user_id, notification):
+    """특정 유저에게 실시간 알림 push"""
+    for sid in get_sids_for_user(user_id):
+        socketio.emit("new-notification", notification, to=sid)
+
+
 def register_meeting_socket(socketio):
 
     @socketio.on("connect")

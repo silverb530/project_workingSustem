@@ -1,10 +1,9 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
 import Icons from './Icons'
 import Avatar from './Avatar'
 import { API_BASE } from '../config'
 
-//실시간 채팅 때, currentUser 추가
 function Header({
     sidebarCollapsed,
     onMenuClick,
@@ -18,8 +17,20 @@ function Header({
     const [searchValue, setSearchValue] = useState('')
     const [onlineCount, setOnlineCount] = useState(0)
     const [meetingCount, setMeetingCount] = useState(0)
+    const notifWrapperRef = useRef(null)
 
     const unreadCount = notifications.filter(n => !n.read).length
+
+    useEffect(() => {
+        if (!showNotifications) return
+        function handleClickOutside(e) {
+            if (notifWrapperRef.current && !notifWrapperRef.current.contains(e.target)) {
+                setShowNotifications(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [showNotifications])
 
     useEffect(() => {
         const employeeId = currentUser?.employee_id || currentUser?.id
@@ -130,7 +141,7 @@ function Header({
                     </div>
                 </div>
 
-                <div className="notification-wrapper">
+                <div className="notification-wrapper" ref={notifWrapperRef}>
                     <button
                         className="icon-btn"
                         onClick={() => setShowNotifications(!showNotifications)}

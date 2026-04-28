@@ -388,6 +388,9 @@ input {
     width: 40px;
     height: 40px;
     border-radius: 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
     color: var(--foreground);
     transition: background-color 0.2s;
 }
@@ -398,19 +401,163 @@ input {
 
 .notification-badge {
     position: absolute;
-    top: 6px;
-    right: 6px;
+    top: 4px;
+    right: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 8px;
-    background-color: var(--destructive);
-    color: var(--primary-foreground);
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff;
     font-size: 10px;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5);
+    border: 2px solid var(--background, #fff);
+    pointer-events: none;
+    animation: badge-pop 0.25s ease;
+}
+
+@keyframes badge-pop {
+    0%   { transform: scale(0.6); opacity: 0; }
+    70%  { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* 알림 래퍼 (버튼 + 드롭다운 묶음) */
+.notification-wrapper {
+    position: relative;
+}
+
+/* 알림 드롭다운 패널 */
+.notification-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 340px;
+    max-height: 480px;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    animation: dropdown-slide 0.18s ease;
+}
+
+@keyframes dropdown-slide {
+    from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 드롭다운 헤더 */
+.notification-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 1;
+    border-radius: 16px 16px 0 0;
+}
+
+.notification-header span {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+/* 모두 읽음 버튼 */
+.btn-text-sm {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 12px;
     font-weight: 600;
+    color: #6366f1;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+
+.btn-text-sm:hover {
+    background: #eef2ff;
+}
+
+/* 알림 아이템 */
+.notification-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid #f8fafc;
+    transition: background 0.15s;
+    cursor: pointer;
+    text-align: left;
+    border: none;
+    background: transparent;
+    width: 100%;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-item:hover {
+    background: #f8fafc;
+}
+
+.notification-item.unread {
+    background: #fafafa;
+    border-left: 3px solid #6366f1;
+    padding-left: 15px;
+}
+
+.notification-item.unread:hover {
+    background: #f5f3ff;
+}
+
+/* 읽음/안읽음 점 */
+.notification-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    flex-shrink: 0;
+    margin-top: 5px;
+    transition: background 0.15s;
+}
+
+.notification-item.unread .notification-dot {
+    background: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+/* 알림 텍스트 */
+.notification-text {
+    font-size: 13px;
+    color: #1e293b;
+    line-height: 1.5;
+    margin: 0 0 4px;
+    word-break: keep-all;
+}
+
+.notification-item.unread .notification-text {
+    font-weight: 600;
+}
+
+/* 알림 시간 */
+.notification-time {
+    font-size: 11px;
+    color: #94a3b8;
+    margin: 0;
 }
 
 .user-profile {

@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react'
+import { io } from 'socket.io-client'
 import './App_user.css'
 import { API_BASE } from '../config'
 import Sidebar from './Sidebar'
@@ -125,7 +126,8 @@ function App_user() {
         localStorage.setItem('readNotifIds', JSON.stringify([...ids]))
     }
 
-    const fetchNotifications = useCallback(async (employeeId) => {
+    // 초기 알림 목록: API에서 기존 알림 로드
+    const fetchInitialNotifications = useCallback(async (employeeId) => {
         if (!employeeId) return
 
         try {
@@ -148,21 +150,43 @@ function App_user() {
 
             setNotifications(merged)
         } catch {
-            // 알림 조회 실패 시 무시
+            // 무시
         }
     }, [])
 
+    // Socket.IO로 실시간 알림 수신
     useEffect(() => {
         if (!currentUser?.employee_id) return
 
-        fetchNotifications(currentUser.employee_id)
+        fetchInitialNotifications(currentUser.employee_id)
 
-        const timer = setInterval(() => {
-            fetchNotifications(currentUser.employee_id)
-        }, 10000)
+        const socket = io(API_BASE, {
+            transports: ['websocket', 'polling'],
+            withCredentials: true,
+        })
 
-        return () => clearInterval(timer)
-    }, [currentUser?.employee_id, fetchNotifications])
+        socket.on('connect', () => {
+            socket.emit('register-online', {
+                user_id: currentUser.employee_id,
+                user_name: currentUser.name || '사용자',
+            })
+        })
+
+        socket.on('new-notification', (notification) => {
+            const readIds = readNotifIdsRef.current
+            setNotifications(prev => {
+                const exists = prev.some(n => n.id === notification.id)
+                const enriched = { ...notification, read: readIds.has(String(notification.id)) }
+                if (exists) return prev
+                return [enriched, ...prev]
+            })
+        })
+
+        return () => {
+            socket.emit('unregister-online')
+            socket.disconnect()
+        }
+    }, [currentUser?.employee_id, currentUser?.name, fetchInitialNotifications])
 
     const handleMarkAllNotificationsRead = useCallback(() => {
         setNotifications(prev => {

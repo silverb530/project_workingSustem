@@ -1,5 +1,7 @@
 from flask import Blueprint, request, jsonify
 from db import get_conn
+from extensions import get_socketio
+from meeting_socket import push_notification_to_user
 
 meeting_bp = Blueprint("meeting", __name__)
 
@@ -121,13 +123,36 @@ def create_meeting():
             )
             room_id = cur.lastrowid
 
+            actual_invited = []
             for emp_id in invited_ids:
                 if emp_id != host_id:
                     cur.execute(
                         "INSERT IGNORE INTO meeting_invites (room_id, employee_id) VALUES (%s, %s)",
                         (room_id, emp_id)
                     )
+                    actual_invited.append(emp_id)
+
+            cur.execute("SELECT name FROM employees WHERE employee_id = %s LIMIT 1", (host_id,))
+            host_row = cur.fetchone()
+            host_name = host_row.get("name", "관리자") if host_row else "관리자"
+
         conn.commit()
+
+        # 실시간 알림 push
+        sio = get_socketio()
+        if sio and actual_invited:
+            notification = {
+                "id": f"meeting-{room_id}",
+                "type": "MEETING_INVITE",
+                "section": "meetings",
+                "room_id": room_id,
+                "text": f"{host_name}님이 '{title}' 회의에 초대했습니다.",
+                "time": "",
+                "read": False,
+            }
+            for emp_id in actual_invited:
+                push_notification_to_user(sio, emp_id, notification)
+
         return jsonify({"success": True, "room_id": room_id})
     except Exception as e:
         if conn:
