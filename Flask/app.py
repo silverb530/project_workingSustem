@@ -21,6 +21,7 @@ from route.Manager.dashboard_routes import dashboard_bp # 매니저 페이지 �
 from route.Manager.task_route import task_bp # 매니저 업무 현황 & 할당
 from route.Manager.file_routes import file_bp #매니저 파일업로드
 from route.Manager.chat_room_routes import chat_room_bp #매니저 채팅방
+from route.Manager.face_manage_routes import face_manage_bp #얼굴 미등록 인원
 from route.Manager.notice_routes import notice_bp #공지사항
 from route.Manager.board.board_routes import board_bp # 게시판
 
@@ -84,6 +85,7 @@ app.register_blueprint(dashboard_bp)
 app.register_blueprint(task_bp)
 app.register_blueprint(file_bp)
 app.register_blueprint(chat_room_bp)
+app.register_blueprint(face_manage_bp)
 app.register_blueprint(notice_bp)
 app.register_blueprint(Mchat_bp)
 app.register_blueprint(meeting_bp)

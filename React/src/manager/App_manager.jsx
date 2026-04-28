@@ -269,7 +269,8 @@ function Sidebar({
             icon: Icons.Users,
             items: [
                 { id: 'employeeList', label: '직원 목록' },
-                { id: 'faceRegister', label: '얼굴 등록' },
+                { id: 'unregisteredFace', label: '미등록 인원' },
+                { id: 'registFaceReco', label: '얼굴 인식 등록' },
             ],
         },
         {
@@ -279,8 +280,7 @@ function Sidebar({
             items: [
                 { id: 'attendanceStatus', label: '출퇴근 현황' },
                 { id: 'attendanceLog', label: '출퇴근 기록' },
-                { id: 'unregisteredFace', label: '미등록 인원' },
-                { id: 'registFaceReco', label: '얼굴 인식 등록' },
+                
             ],
         },
         {
