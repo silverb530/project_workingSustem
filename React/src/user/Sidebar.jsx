@@ -8,6 +8,7 @@ function Sidebar({
     onSectionChange,
     taskBadge = 0,
     chatBadge = 0,
+    meetingBadge = 0,
 }) {
     const [boardOpen, setBoardOpen] = useState(true)
     const [settingsOpen, setSettingsOpen] = useState(false)
@@ -16,7 +17,7 @@ function Sidebar({
         { id: 'dashboard', label: '대시보드', icon: Icons.LayoutDashboard },
         { id: 'tasks', label: '업무관리', icon: Icons.CheckSquare, badge: taskBadge },
         { id: 'chat', label: '실시간 채팅', icon: Icons.MessageCircle, badge: chatBadge },
-        { id: 'meetings', label: '화상회의', icon: Icons.Video },
+        { id: 'meetings', label: '화상회의', icon: Icons.Video, badge: meetingBadge },
         { id: 'team', label: '팀원', icon: Icons.Users },
         { id: 'calendar', label: '캘린더', icon: Icons.Calendar },
         { id: 'notice', label: '공지사항', icon: Icons.Bell },
