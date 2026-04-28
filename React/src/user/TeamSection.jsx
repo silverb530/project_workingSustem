@@ -1,196 +1,173 @@
-﻿import { useState } from 'react'
-import Icons from './Icons'
-import Avatar from './Avatar'
-import Modal from './Modal'
+import { useEffect, useState, useMemo } from 'react'
+
+const API_BASE = 'http://localhost:5000'
+
+function authHeaders() {
+    const token = localStorage.getItem('token')
+    return { Authorization: token ? `Bearer ${token}` : '' }
+}
+
+async function apiGet(path) {
+    const res = await fetch(`${API_BASE}${path}`, { headers: authHeaders() })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || `GET ${path} 실패`)
+    return data
+}
+
+const PAGE_SIZE = 10
 
 function TeamSection() {
-  const [members, setMembers] = useState([
-    { id: 1, name: '김사라', role: '디자이너', status: 'online', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=32&h=32&fit=crop&crop=face', email: 'sarah@teamflow.com', phone: '010-1234-5678', tasks: 4 },
-    { id: 2, name: '이민준', role: '개발자', status: 'online', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face', email: 'minjun@teamflow.com', phone: '010-2345-6789', tasks: 7 },
-    { id: 3, name: '박지연', role: '마케터', status: 'meeting', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face', email: 'jiyeon@teamflow.com', phone: '010-3456-7890', tasks: 2 },
-    { id: 4, name: '최민호', role: '개발자', status: 'offline', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=face', email: 'minho@teamflow.com', phone: '010-4567-8901', tasks: 5 },
-    { id: 5, name: '정유진', role: 'PM', status: 'online', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=32&h=32&fit=crop&crop=face', email: 'yujin@teamflow.com', phone: '010-5678-9012', tasks: 3 },
-  ])
-  const [showModal, setShowModal] = useState(false)
-  const [showDetail, setShowDetail] = useState(null)
-  const [newMember, setNewMember] = useState({ name: '', role: '', email: '' })
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
+    const [employees, setEmployees]     = useState([])
+    const [loading, setLoading]         = useState(false)
+    const [error, setError]             = useState('')
+    const [inputSearch, setInputSearch] = useState('')
+    const [search, setSearch]           = useState('')
+    const [page, setPage]               = useState(1)
 
-  const statusLabel = { online: '온라인', meeting: '회의 중', offline: '오프라인' }
-  const statusColors = { online: '#22c55e', meeting: '#f59e0b', offline: '#94a3b8' }
+    useEffect(() => { loadData() }, [])
 
-  const addMember = () => {
-    if (!newMember.name.trim() || !newMember.role.trim()) return
-    const member = {
-      id: Date.now(),
-      name: newMember.name,
-      role: newMember.role,
-      status: 'offline',
-      avatar: '',
-      email: newMember.email,
-      phone: '',
-      tasks: 0,
+    async function loadData() {
+        try {
+            setLoading(true)
+            setError('')
+            const data = await apiGet('/api/employees')
+            const list = Array.isArray(data.employees) ? data.employees : []
+            setEmployees(list.filter((e) => e.is_active))
+        } catch (err) {
+            setError(err.message)
+            setEmployees([])
+        } finally {
+            setLoading(false)
+        }
     }
-    setMembers(prev => [...prev, member])
-    setNewMember({ name: '', role: '', email: '' })
-    setShowModal(false)
-  }
 
-  const removeMember = (id) => {
-    setMembers(prev => prev.filter(m => m.id !== id))
-    if (showDetail?.id === id) setShowDetail(null)
-  }
+    function applySearch() {
+        setSearch(inputSearch)
+        setPage(1)
+    }
 
-  const filtered = members
-    .filter(m => filterStatus === 'all' || m.status === filterStatus)
-    .filter(m => m.name.includes(searchTerm) || m.role.includes(searchTerm))
+    function handleReset() {
+        setInputSearch('')
+        setSearch('')
+        setPage(1)
+    }
 
-  const onlineCount = members.filter(m => m.status === 'online').length
-  const meetingCount = members.filter(m => m.status === 'meeting').length
+    function handleKeyDown(e) {
+        if (e.key === 'Enter') applySearch()
+    }
 
-  return (
-    <div className="content-wrapper">
-      <div className="welcome-section">
-        <h1>팀원</h1>
-        <p>현재 팀 구성원 현황입니다.</p>
-      </div>
+    const filtered = useMemo(() =>
+        employees.filter((e) =>
+            search === '' || (e.name || '').includes(search)
+        ),
+        [employees, search]
+    )
 
-      <div className="stats-row">
-        <div className="stat-card">
-          <p className="stat-label">전체 팀원</p>
-          <p className="stat-value">{members.length}</p>
-          <p className="stat-change neutral">활성 멤버</p>
-        </div>
-        <div className="stat-card">
-          <p className="stat-label">온라인</p>
-          <p className="stat-value">{onlineCount}</p>
-          <p className="stat-change positive">현재 접속 중</p>
-        </div>
-        <div className="stat-card">
-          <p className="stat-label">회의 중</p>
-          <p className="stat-value">{meetingCount}</p>
-          <p className="stat-change warning">미팅 참여</p>
-        </div>
-        <div className="stat-card">
-          <p className="stat-label">오프라인</p>
-          <p className="stat-value">{members.filter(m=>m.status==='offline').length}</p>
-          <p className="stat-change neutral">자리 비움</p>
-        </div>
-      </div>
+    const deptCount = useMemo(() => {
+        const depts = new Set(employees.map((e) => e.department).filter(Boolean))
+        return depts.size
+    }, [employees])
 
-      <div className="card">
-        <div className="card-header">
-          <div className="card-header-left">
-            <h3>팀원 목록</h3>
-            <p>총 {members.length}명</p>
-          </div>
-          <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
-            <div className="search-wrapper" style={{width:'180px'}}>
-              <Icons.Search className="search-icon sm" />
-              <input type="text" className="search-input" placeholder="이름, 역할 검색" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{paddingRight:'8px'}} />
-            </div>
-            <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
-              <Icons.Plus className="sm" />팀원 초대
-            </button>
-          </div>
-        </div>
+    const totalPages     = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+    const pagedEmployees = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-        <div className="filter-tabs">
-          {[['all','전체'],['online','온라인'],['meeting','회의 중'],['offline','오프라인']].map(([v,l]) => (
-            <button key={v} className={`filter-tab ${filterStatus===v?'active':''}`} onClick={() => setFilterStatus(v)}>{l}</button>
-          ))}
-        </div>
+    return (
+        <div className="content-wrapper">
 
-        <div className="card-content">
-          <div className="team-grid">
-            {filtered.map((m) => (
-              <div key={m.id} className="team-card" onClick={() => setShowDetail(m)}>
-                <div className="team-card-header">
-                  <div className="team-avatar-wrapper">
-                    <Avatar src={m.avatar} name={m.name} size="lg" />
-                    <div className="team-status-dot" style={{background: statusColors[m.status]}} />
-                  </div>
-                  <button className="btn btn-icon btn-ghost sm team-more" onClick={e => { e.stopPropagation(); removeMember(m.id) }} title="제거">
-                    <Icons.X className="sm" />
-                  </button>
+            {/* 헤더 */}
+            <div className="team-page-header">
+                <div>
+                    <h1 className="team-page-title">팀원</h1>
+                    <p className="team-page-desc">전체 구성원 정보를 조회합니다.</p>
                 </div>
-                <div className="team-card-body">
-                  <p className="team-name">{m.name}</p>
-                  <p className="team-role">{m.role}</p>
-                  <div className="team-status-label" style={{color: statusColors[m.status]}}>
-                    <div className="status-dot" style={{background: statusColors[m.status], width:'6px', height:'6px', flexShrink:0}} />
-                    {statusLabel[m.status]}
-                  </div>
-                  <div className="team-tasks">
-                    <Icons.CheckSquare className="sm" />
-                    <span>진행 업무 {m.tasks}건</span>
-                  </div>
-                </div>
-                <div className="team-card-actions">
-                  <button className="btn btn-outline btn-sm" onClick={e => e.stopPropagation()}>
-                    <Icons.MessageCircle className="sm" />메시지
-                  </button>
-                  <button className="btn btn-outline btn-sm" onClick={e => e.stopPropagation()}>
-                    <Icons.Mail className="sm" />이메일
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          {filtered.length === 0 && <div className="empty-state">검색 결과가 없습니다.</div>}
-        </div>
-      </div>
+            </div>
 
-      {/* 팀원 상세 모달 */}
-      <Modal isOpen={!!showDetail} onClose={() => setShowDetail(null)} title="팀원 상세 정보">
-        {showDetail && (
-          <div className="member-detail">
-            <div className="member-detail-header">
-              <Avatar src={showDetail.avatar} name={showDetail.name} size="lg" />
-              <div>
-                <h3>{showDetail.name}</h3>
-                <p className="team-role">{showDetail.role}</p>
-                <div className="team-status-label" style={{color: statusColors[showDetail.status]}}>
-                  <div className="status-dot" style={{background: statusColors[showDetail.status], width:'6px', height:'6px'}} />
-                  {statusLabel[showDetail.status]}
+            {/* 통계 */}
+            <div className="stats-row team-stats-row">
+                <div className="stat-card">
+                    <p className="stat-label">전체 직원</p>
+                    <p className="stat-value">{employees.length}</p>
+                    <p className="stat-change neutral">재직 중</p>
                 </div>
-              </div>
+                <div className="stat-card">
+                    <p className="stat-label">부서 수</p>
+                    <p className="stat-value">{deptCount}</p>
+                    <p className="stat-change neutral">개 부서</p>
+                </div>
             </div>
-            <div className="member-detail-info">
-              {showDetail.email && <div className="detail-row"><Icons.Mail className="sm" /><span>{showDetail.email}</span></div>}
-              {showDetail.phone && <div className="detail-row"><Icons.Phone className="sm" /><span>{showDetail.phone}</span></div>}
-              <div className="detail-row"><Icons.CheckSquare className="sm" /><span>진행 중인 업무: {showDetail.tasks}건</span></div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setShowDetail(null)}>닫기</button>
-              <button className="btn btn-primary">메시지 보내기</button>
-            </div>
-          </div>
-        )}
-      </Modal>
 
-      {/* 팀원 초대 모달 */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="팀원 초대">
-        <div className="form-group">
-          <label>이름 *</label>
-          <input className="form-input" placeholder="이름을 입력하세요" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value})} />
+            {error && <div className="team-error">{error}</div>}
+
+            {/* 검색 */}
+            <div className="card team-search-card">
+                <div className="card-content" style={{ paddingTop: 16 }}>
+                    <div className="team-search-row">
+                        <span className="team-search-label">이름</span>
+                        <input
+                            className="team-search-input"
+                            placeholder="이름을 입력하세요"
+                            value={inputSearch}
+                            onChange={(e) => setInputSearch(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                        />
+                        <button className="btn btn-primary btn-sm team-search-btn" onClick={applySearch}>검색</button>
+                        <button className="team-reset-btn btn-sm team-search-btn" onClick={handleReset}>초기화</button>
+                    </div>
+                </div>
+            </div>
+
+            {/* 테이블 */}
+            <div className="card">
+                <div className="card-header">
+                    <div className="card-header-left">
+                        <h3>팀원 목록</h3>
+                        <p>총 {filtered.length}명</p>
+                    </div>
+                </div>
+                <div className="card-content" style={{ paddingTop: 0 }}>
+                    <div className="team-table-wrap">
+                        <table className="team-table">
+                            <thead>
+                                <tr>
+                                    <th>이름</th>
+                                    <th>직급</th>
+                                    <th>부서</th>
+                                    <th>전화번호</th>
+                                    <th>이메일</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading && (
+                                    <tr><td colSpan={5} className="team-table-empty">불러오는 중...</td></tr>
+                                )}
+                                {!loading && filtered.length === 0 && (
+                                    <tr><td colSpan={5} className="team-table-empty">검색 결과가 없습니다.</td></tr>
+                                )}
+                                {!loading && pagedEmployees.map((emp) => (
+                                    <tr key={emp.employee_id}>
+                                        <td className="team-table-name">{emp.name || '-'}</td>
+                                        <td>{emp.position || '-'}</td>
+                                        <td>{emp.department || '-'}</td>
+                                        <td>{emp.phone || '-'}</td>
+                                        <td>{emp.email || '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="team-pagination">
+                        <button onClick={() => setPage(1)} disabled={page === 1}>«</button>
+                        <button onClick={() => setPage((p) => p - 1)} disabled={page === 1}>‹</button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                            <button key={p} className={p === page ? 'active' : ''} onClick={() => setPage(p)}>{p}</button>
+                        ))}
+                        <button onClick={() => setPage((p) => p + 1)} disabled={page === totalPages}>›</button>
+                        <button onClick={() => setPage(totalPages)} disabled={page === totalPages}>»</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div className="form-group">
-          <label>역할 *</label>
-          <input className="form-input" placeholder="예: 개발자, 디자이너" value={newMember.role} onChange={e => setNewMember({...newMember, role: e.target.value})} />
-        </div>
-        <div className="form-group">
-          <label>이메일</label>
-          <input className="form-input" type="email" placeholder="이메일 주소" value={newMember.email} onChange={e => setNewMember({...newMember, email: e.target.value})} />
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-outline" onClick={() => setShowModal(false)}>취소</button>
-          <button className="btn btn-primary" onClick={addMember}>초대</button>
-        </div>
-      </Modal>
-    </div>
-  )
+    )
 }
 
 export default TeamSection

@@ -1206,16 +1206,17 @@ input {
 .meeting-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px;
-    border: 1px solid transparent;
-    border-radius: 8px;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background-color: var(--background);
     transition: all 0.2s;
 }
 
     .meeting-item:hover {
-        border-color: var(--border);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        background-color: var(--secondary);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
     }
 
 .meeting-icon-wrapper {
@@ -1263,12 +1264,25 @@ input {
         }
 
 .meeting-join {
-    opacity: 0;
-    transition: opacity 0.2s;
+    opacity: 1;
+    flex-shrink: 0;
 }
 
-.meeting-item:hover .meeting-join {
-    opacity: 1;
+.btn-leave-meeting {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid #fca5a5;
+    background: #fff5f5;
+    color: #dc2626;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.btn-leave-meeting:hover {
+    background: #fee2e2;
 }
 
 /* ===============================
@@ -1762,3 +1776,188 @@ input {
         background: var(--secondary);
         color: var(--primary);
     }
+
+/* ===============================
+   Team Table
+   =============================== */
+.team-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.team-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.team-table th,
+.team-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    font-size: 14px;
+}
+
+.team-table th {
+    background-color: var(--background);
+    color: var(--muted-foreground);
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.team-table td {
+    color: var(--foreground);
+}
+
+.team-table tbody tr:hover td {
+    background-color: var(--secondary);
+}
+
+.team-table-name {
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.team-table-empty {
+    text-align: center;
+    padding: 32px;
+    color: var(--muted-foreground);
+    font-size: 14px;
+}
+
+/* ── 팀원 페이지 헤더 ── */
+.team-page-header {
+    display: flex;
+    align-items: center;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+}
+
+.team-page-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--foreground);
+    margin: 0 0 4px 0;
+    text-align: left;
+}
+
+.team-page-desc {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    margin: 0;
+    text-align: left;
+}
+
+/* ── 팀원 통계 ── */
+.team-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+    margin-bottom: 20px;
+}
+
+/* ── 팀원 검색 ── */
+.team-search-card {
+    margin-bottom: 20px;
+}
+
+.team-search-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.team-search-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    white-space: nowrap;
+}
+
+.team-search-input {
+    flex: 1;
+    height: 35px;
+    padding: 0 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #fff;
+    outline: none;
+}
+
+.team-search-input:focus {
+    border-color: var(--primary);
+}
+
+.team-search-btn {
+    flex-shrink: 0;
+    height: 35px;
+    padding: 0 18px;
+    font-size: 13px;
+}
+
+.team-reset-btn {
+    flex-shrink: 0;
+    height: 35px;
+    padding: 0 18px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--foreground);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.team-reset-btn:hover {
+    background: var(--secondary);
+}
+
+/* ── 팀원 오류 ── */
+.team-error {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(229, 72, 77, 0.1);
+    color: #c23b40;
+    font-size: 14px;
+}
+
+/* ── 팀원 페이지네이션 ── */
+.team-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    margin-top: 16px;
+}
+
+.team-pagination button {
+    padding: 5px 11px;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    background: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    color: #374151;
+    transition: background 0.15s;
+}
+
+.team-pagination button:hover:not(:disabled) {
+    background: #f3f4f6;
+}
+
+.team-pagination button.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+    font-weight: 700;
+}
+
+.team-pagination button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}

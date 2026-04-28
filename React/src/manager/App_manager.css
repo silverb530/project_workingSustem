@@ -2033,6 +2033,7 @@ input {
     font-weight: 700;
     color: var(--foreground);
     margin: 0 0 4px 0;
+    text-align: left;
 }
 
 .emp-page-header-desc {
@@ -2095,6 +2096,7 @@ input {
     font-weight: 700;
     color: var(--foreground);
     margin: 0 0 4px 0;
+    text-align: left;
 }
 
 .att-page-date {
