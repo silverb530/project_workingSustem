@@ -15,6 +15,9 @@ def get_token_from_header():
 def login_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
+        if request.method == "OPTIONS":
+            return jsonify({}), 200
+
         token = get_token_from_header()
 
         if not token:
@@ -44,6 +47,9 @@ def role_required(*allowed_roles):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            if request.method == "OPTIONS":
+                return jsonify({}), 200
+
             token = get_token_from_header()
 
             if not token:
