@@ -48,7 +48,8 @@ function normalizeMember(member) {
     id,
     employee_id: id,
     name: member.name || '이름 없음',
-    role: member.role || member.position || member.department || '직책 없음',
+    position: member.position || member.department || '직책 없음',
+    role: member.role || '',
     avatar: member.avatar || '',
   }
 } //54번까지 실시간 때 수정
@@ -882,7 +883,10 @@ function ChatSection({ mini = false, currentUser }) {
                   <Avatar src={member.avatar} name={member.name} />
                   <div className="invite-member-info">
                     <strong>{member.name}</strong>
-                    <span>{member.role}</span>
+                    <span>
+                       {member.department ? `${member.department} · ` : ''}
+                       {member.position || '직책 없음'}
+                    </span>
                   </div>
                   <div className="invite-check">
                     {selectedMemberIds.includes(member.id) ? '✓' : ''}
