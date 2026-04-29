@@ -64,6 +64,22 @@ function getLoginRoleText(user) {
     return user.role || '시스템 관리자'
 }
 
+function clearAuthStorage() {
+    localStorage.removeItem('loginUser')
+    localStorage.removeItem('user')
+    localStorage.removeItem('token')
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('jwt')
+    localStorage.removeItem('authToken')
+
+    sessionStorage.removeItem('loginUser')
+    sessionStorage.removeItem('user')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('accessToken')
+    sessionStorage.removeItem('jwt')
+    sessionStorage.removeItem('authToken')
+}
+
 const Icons = {
     LayoutDashboard: ({ className = '' }) => (
         <svg className={`icon ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -280,7 +296,6 @@ function Sidebar({
             items: [
                 { id: 'attendanceStatus', label: '출퇴근 현황' },
                 { id: 'attendanceLog', label: '출퇴근 기록' },
-                
             ],
         },
         {
@@ -306,7 +321,7 @@ function Sidebar({
             label: '게시판 자료실',
             icon: Icons.FolderOpen,
             items: [
-                { id: 'noticeBoard', label: '게시판'},
+                { id: 'noticeBoard', label: '게시판' },
             ],
         },
         {
@@ -402,10 +417,26 @@ function Sidebar({
     )
 }
 
-function Header({ sidebarCollapsed, onMenuClick }) {
+function Header({ sidebarCollapsed, onMenuClick, onLogout }) {
     const loginUser = getLoginUser()
     const loginName = getLoginName(loginUser)
     const loginRoleText = getLoginRoleText(loginUser)
+
+    function handleLogoutClick() {
+        const ok = window.confirm('로그아웃 하시겠습니까?')
+
+        if (!ok) {
+            return
+        }
+
+        if (typeof onLogout === 'function') {
+            onLogout()
+            return
+        }
+
+        clearAuthStorage()
+        window.location.replace('/')
+    }
 
     return (
         <header className={`header ${sidebarCollapsed ? 'collapsed' : ''}`}>
@@ -439,7 +470,7 @@ function Header({ sidebarCollapsed, onMenuClick }) {
                     <span className="notification-badge">4</span>
                 </button>
 
-                <button className="user-profile">
+                <button className="user-profile" type="button">
                     <Avatar
                         src=""
                         name={loginName}
@@ -449,8 +480,24 @@ function Header({ sidebarCollapsed, onMenuClick }) {
                         <span className="user-name">{loginName}</span>
                         <span className="user-role">{loginRoleText}</span>
                     </div>
+                </button>
 
-                    <Icons.ChevronDown className="sm" />
+                <button
+                    type="button"
+                    onClick={handleLogoutClick}
+                    style={{
+                        border: 'none',
+                        background: '#ef4444',
+                        color: '#ffffff',
+                        padding: '12px 22px',
+                        borderRadius: '14px',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                    }}
+                >
+                    로그아웃
                 </button>
             </div>
         </header>
@@ -470,12 +517,17 @@ function AppManager() {
         remoteGroup: false,
     })
 
-  const handleToggleGroup = (groupId) => {
-    setOpenGroups((prev) => ({
-      ...prev,
-      [groupId]: !prev[groupId],
-    }))
-  }
+    const handleToggleGroup = (groupId) => {
+        setOpenGroups((prev) => ({
+            ...prev,
+            [groupId]: !prev[groupId],
+        }))
+    }
+
+    function handleLogout() {
+        clearAuthStorage()
+        window.location.replace('/')
+    }
 
     const renderSection = () => {
         switch (activeSection) {
@@ -531,6 +583,7 @@ function AppManager() {
                 <Header
                     sidebarCollapsed={sidebarCollapsed}
                     onMenuClick={() => setSidebarCollapsed((prev) => !prev)}
+                    onLogout={handleLogout}
                 />
 
                 <main className="content-area">
