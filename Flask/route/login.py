@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from db import execute_query, get_conn
 from werkzeug.security import check_password_hash, generate_password_hash
 import json
+from datetime import datetime
 
 # [보안 추가] 로그인 성공 시 JWT 토큰을 발급하기 위해 추가
 from security.jwt_utils import create_token
@@ -44,6 +45,7 @@ def login():
             role,
             password_hash,
             is_active,
+            created_at,
             qr_data
         FROM employees
         WHERE employee_id = %s
@@ -85,6 +87,8 @@ def login():
         "department": user.get("department"),
         "position": user.get("position"),
         "role": user.get("role"),
+        "is_active": user.get("is_active"),
+        "created_at": str(user.get("created_at")) if user.get("created_at") else "",
         "qr_data": user.get("qr_data")
     }
 
@@ -111,12 +115,19 @@ def get_my_ip():
     return jsonify({'ip': ip})
 
 
-def make_qr_data(employee_id, name, email):
+def make_qr_data(employee_id, name, email, phone, department, position, role, is_active, created_at):
     return json.dumps({
-        "type": "employee_access",
-        "employee_id": str(employee_id),
+        "name": name,
+        "role": role,
+        "type": "employee_qr",
         "email": email,
-        "name": name
+        "phone": phone,
+        "emp_code": str(employee_id),
+        "position": position,
+        "is_active": is_active,
+        "created_at": created_at,
+        "department": department,
+        "employee_id": employee_id
     }, ensure_ascii=False)
 
 
@@ -157,6 +168,9 @@ def web_register():
                 }), 409
 
             password_hash = generate_password_hash(password)
+            role = "EMPLOYEE"
+            is_active = 1
+            created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
             cur.execute(
                 """
@@ -171,7 +185,7 @@ def web_register():
                     is_active,
                     created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, 'EMPLOYEE', %s, 1, NOW())
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     name,
@@ -179,13 +193,26 @@ def web_register():
                     phone,
                     department,
                     position,
-                    password_hash
+                    role,
+                    password_hash,
+                    is_active,
+                    created_at
                 )
             )
 
             employee_id = cur.lastrowid
 
-            qr_data = make_qr_data(employee_id, name, email)
+            qr_data = make_qr_data(
+                employee_id=employee_id,
+                name=name,
+                email=email,
+                phone=phone,
+                department=department,
+                position=position,
+                role=role,
+                is_active=is_active,
+                created_at=created_at
+            )
 
             cur.execute(
                 """
