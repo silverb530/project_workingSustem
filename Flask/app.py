@@ -35,6 +35,7 @@ from FaceReco.attendance import attendance_bp as face_attendance_bp
 
 from route.profile import profile_bp #마이페이지
 from route.work_request_route import work_request_bp  # 부서간 업무 요청
+from FaceReco.qr_attendance import qr_attendance_bp # qr 인식 추가
 
 
 app = Flask(__name__)
@@ -102,6 +103,8 @@ app.register_blueprint(face_attendance_bp)
 app.register_blueprint(board_bp)
 app.register_blueprint(profile_bp)
 app.register_blueprint(work_request_bp)
+app.register_blueprint(qr_attendance_bp) #qr 인식 코드
+
 load_employees()
 
 from meeting_socket import register_meeting_socket

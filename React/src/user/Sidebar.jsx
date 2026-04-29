@@ -12,6 +12,7 @@ function Sidebar({
 }) {
     const [boardOpen, setBoardOpen] = useState(true)
     const [settingsOpen, setSettingsOpen] = useState(false)
+    const [attendanceOpen, setAttendanceOpen] = useState(true) //qr 때 추가
 
     const navItems = [
         { id: 'dashboard', label: '대시보드', icon: Icons.LayoutDashboard },
@@ -21,7 +22,6 @@ function Sidebar({
         { id: 'team', label: '팀원', icon: Icons.Users },
         { id: 'calendar', label: '캘린더', icon: Icons.Calendar },
         { id: 'notice', label: '공지사항', icon: Icons.Bell },
-        { id: 'facegate', label: '안면인식 출퇴근', icon: Icons.Scan },
         { id: 'remote', label: '원격 PC 접속', icon: Icons.Monitor },
     ]
 
@@ -78,6 +78,125 @@ function Sidebar({
                         )}
                     </button>
                 ))}
+
+                <div className="nav-group"> {/*qr 때 추가*/}
+                  <button
+                    type="button"
+                    className={`nav-item ${activeSection === 'facegate' || activeSection === 'qrgate' ? 'active' : ''}`}
+                    onClick={() => {
+                      setSettingsOpen(false)
+
+                      if (collapsed) {
+                         onToggle()
+                         return
+                      }
+
+                      setAttendanceOpen(prev => !prev)
+                    }}
+                >
+                    <Icons.Scan />
+
+                    {!collapsed && (
+                         <>
+                               <span className="nav-item-label">출퇴근 체크</span>
+                               <span
+                                 className={`group-arrow ${attendanceOpen ? 'open' : ''}`}
+                                 onClick={(e) => {
+                                    e.stopPropagation()
+                                    setAttendanceOpen(prev => !prev)
+                                 }}
+                                 style={{
+                                    marginLeft: 'auto',
+                                    fontSize: '18px',
+                                    transform: attendanceOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                    transition: '0.2s',
+                                    cursor: 'pointer',
+                                    padding: '2px 6px',
+                                 }}
+                               >
+                                    ˅
+                               </span>
+                         </>
+                    )}
+                </button>
+
+                {!collapsed && attendanceOpen && (
+                     <div
+                        className="sub-nav"
+                        style={{
+                             display: 'flex',
+                             flexDirection: 'column',
+                             gap: '6px',
+                             marginTop: '6px',
+                             marginLeft: '18px',
+                        }}
+                     >
+                        <button
+                            type="button"
+                            onClick={() => handleNavClick('facegate')}
+                            className={`sub-nav-item ${activeSection === 'facegate' ? 'active' : ''}`}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                width: '100%',
+                                border: 'none',
+                                borderRadius: '12px',
+                                padding: '12px 16px',
+                                background: activeSection === 'facegate' ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
+                                color: activeSection === 'facegate' ? 'var(--primary)' : 'inherit',
+                                fontWeight: activeSection === 'facegate' ? 700 : 500,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                            }}
+                        >
+                            <span
+                                className="sub-nav-dot"
+                                style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    background: activeSection === 'facegate' ? 'var(--primary)' : '#9ca3af',
+                                    flexShrink: 0,
+                                }}
+                            />
+                            <span className="sub-nav-label">안면인식 출퇴근</span>
+                        </button>
+
+                        <button
+                           type="button"
+                           onClick={() => handleNavClick('qrgate')}
+                           className={`sub-nav-item ${activeSection === 'qrgate' ? 'active' : ''}`}
+                           style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                width: '100%',
+                                border: 'none',
+                                borderRadius: '12px',
+                                padding: '12px 16px',
+                                background: activeSection === 'qrgate' ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
+                                color: activeSection === 'qrgate' ? 'var(--primary)' : 'inherit',
+                                fontWeight: activeSection === 'qrgate' ? 700 : 500,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                           }}
+                        >
+                            <span
+                                className="sub-nav-dot"
+                                style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    background: activeSection === 'qrgate' ? 'var(--primary)' : '#9ca3af',
+                                    flexShrink: 0,
+                                }}
+                            />
+                            <span className="sub-nav-label">QR 출퇴근</span>
+                        </button>
+                      </div>
+                     )}
+                </div>
 
                 <div className="nav-group">
                     <button

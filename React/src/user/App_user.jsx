@@ -14,6 +14,7 @@ import FaceGate from './FaceGate'
 import RemoteNode from './RemoteNode'
 import MyPage from './MyPage'
 import NoticeSection from './NoticeSection'
+import QrGate from './QrGate' //qr 때 추가
 
 // 관리자 게시판과 같은 게시판을 유저 페이지에서도 사용
 // 같은 /api/boards API를 사용하므로 관리자 게시판과 유저 게시판이 서로 연동됨
@@ -354,6 +355,9 @@ function App_user() {
 
             case 'remote':
                 return <RemoteNode />
+
+            case 'qrgate':
+                return <QrGate /> //qr때 추가
 
             case 'mypage':
                 return (
