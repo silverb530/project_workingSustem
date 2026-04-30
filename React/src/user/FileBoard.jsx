@@ -3,6 +3,70 @@ import Icons from './Icons'
 
 const API_BASE = `http://${window.location.hostname}:5000`
 
+function getStoredJson(key) {
+    try {
+        const value = localStorage.getItem(key) || sessionStorage.getItem(key)
+
+        if (!value) {
+            return null
+        }
+
+        return JSON.parse(value)
+    } catch {
+        return null
+    }
+}
+
+function getAuthToken() {
+    const directToken =
+        localStorage.getItem('token') ||
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('accessToken') ||
+        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('access_token') ||
+        localStorage.getItem('jwt') ||
+        sessionStorage.getItem('jwt') ||
+        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('authToken') ||
+        ''
+
+    if (directToken) {
+        return directToken
+    }
+
+    const loginUser = getStoredJson('loginUser')
+    const user = getStoredJson('user')
+    const authUser = getStoredJson('authUser')
+    const saved = loginUser || user || authUser || {}
+
+    return (
+        saved.token ||
+        saved.accessToken ||
+        saved.access_token ||
+        saved.jwt ||
+        saved.authToken ||
+        saved?.user?.token ||
+        saved?.user?.accessToken ||
+        saved?.user?.access_token ||
+        saved?.user?.jwt ||
+        saved?.user?.authToken ||
+        ''
+    )
+}
+
+function getAuthHeaders() {
+    const token = getAuthToken()
+
+    if (!token) {
+        return {}
+    }
+
+    return {
+        Authorization: `Bearer ${token}`,
+    }
+}
+
 async function readJsonResponse(res, fallbackMessage) {
     let data = {}
 
@@ -20,7 +84,11 @@ async function readJsonResponse(res, fallbackMessage) {
 }
 
 async function apiGet(path) {
-    const res = await fetch(`${API_BASE}${path}`)
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+    })
+
     return readJsonResponse(res, `GET ${path} 실패`)
 }
 
@@ -59,7 +127,7 @@ function FileBoard({ mini = false, onSectionChange }) {
             return
         }
 
-        alert('게시판으로 이동하려면 FileBoard에 onSectionChange를 전달해야 합니다.')
+        window.location.href = '/user'
     }
 
     const recentBoards = boards.slice(0, mini ? 4 : 8)

@@ -3,8 +3,84 @@ import '../App_manager.css'
 
 const API_BASE = 'http://localhost:5000'
 
+function getStoredJson(key) {
+    try {
+        const value = localStorage.getItem(key) || sessionStorage.getItem(key)
+
+        if (!value) {
+            return null
+        }
+
+        return JSON.parse(value)
+    } catch {
+        return null
+    }
+}
+
+function getAuthToken() {
+    const directToken =
+        localStorage.getItem('token') ||
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('accessToken') ||
+        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('access_token') ||
+        localStorage.getItem('jwt') ||
+        sessionStorage.getItem('jwt') ||
+        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('authToken') ||
+        ''
+
+    if (directToken) {
+        return directToken
+    }
+
+    const loginUser = getStoredJson('loginUser')
+    const user = getStoredJson('user')
+    const currentUser = getStoredJson('currentUser')
+    const authUser = getStoredJson('authUser')
+    const saved = loginUser || user || currentUser || authUser || {}
+
+    return (
+        saved.token ||
+        saved.accessToken ||
+        saved.access_token ||
+        saved.jwt ||
+        saved.authToken ||
+        saved?.user?.token ||
+        saved?.user?.accessToken ||
+        saved?.user?.access_token ||
+        saved?.user?.jwt ||
+        saved?.user?.authToken ||
+        saved?.data?.token ||
+        saved?.data?.accessToken ||
+        saved?.data?.access_token ||
+        saved?.result?.token ||
+        saved?.result?.accessToken ||
+        saved?.result?.access_token ||
+        ''
+    )
+}
+
+function getAuthHeaders(extraHeaders = {}) {
+    const token = getAuthToken()
+
+    if (!token) {
+        return extraHeaders
+    }
+
+    return {
+        ...extraHeaders,
+        Authorization: `Bearer ${token}`,
+    }
+}
+
 async function apiGet(path) {
-    const res = await fetch(`${API_BASE}${path}`)
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+    })
+
     const data = await res.json()
 
     if (!res.ok) {
@@ -17,6 +93,7 @@ async function apiGet(path) {
 async function apiDelete(path) {
     const res = await fetch(`${API_BASE}${path}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     })
 
     const data = await res.json()
@@ -31,7 +108,9 @@ async function apiDelete(path) {
 async function apiPost(path, body = null) {
     const options = {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({
+            'Content-Type': 'application/json',
+        }),
     }
 
     if (body !== null) {
@@ -51,7 +130,9 @@ async function apiPost(path, body = null) {
 async function apiPut(path, body = null) {
     const options = {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({
+            'Content-Type': 'application/json',
+        }),
     }
 
     if (body !== null) {
@@ -66,6 +147,40 @@ async function apiPut(path, body = null) {
     }
 
     return data
+}
+
+function getLoginUser() {
+    try {
+        const saved =
+            localStorage.getItem('loginUser') ||
+            sessionStorage.getItem('loginUser') ||
+            localStorage.getItem('user') ||
+            sessionStorage.getItem('user') ||
+            localStorage.getItem('currentUser') ||
+            sessionStorage.getItem('currentUser')
+
+        if (!saved) return {}
+
+        const parsed = JSON.parse(saved)
+
+        if (parsed.user) return parsed.user
+        if (parsed.employee) return parsed.employee
+        if (parsed.data?.user) return parsed.data.user
+        if (parsed.result?.user) return parsed.result.user
+
+        return parsed
+    } catch {
+        return {}
+    }
+}
+
+function getLoginEmployeeId(user) {
+    return (
+        user.employee_id ||
+        user.employeeId ||
+        user.id ||
+        null
+    )
 }
 
 function PageHeader({ title, description, actionText = '새로고침', onAction }) {
@@ -107,18 +222,8 @@ function NoticePage() {
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
 
-    const getLoginUser = () => {
-        try {
-            const saved = localStorage.getItem('loginUser')
-            if (!saved) return {}
-            return JSON.parse(saved)
-        } catch {
-            return {}
-        }
-    }
-
     const loginUser = getLoginUser()
-    const authorId = loginUser.employee_id || loginUser.id || 3
+    const authorId = getLoginEmployeeId(loginUser)
 
     useEffect(() => {
         loadNotices()
@@ -138,6 +243,7 @@ function NoticePage() {
             }
         } catch (err) {
             setError(err.message)
+            setNotices([])
         } finally {
             setLoading(false)
         }
@@ -165,9 +271,14 @@ function NoticePage() {
                 return
             }
 
+            if (!authorId) {
+                setError('로그인 사용자 정보를 찾을 수 없습니다. 다시 로그인하세요.')
+                return
+            }
+
             const body = {
-                title,
-                content,
+                title: title.trim(),
+                content: content.trim(),
                 author_id: authorId,
                 is_pinned: isPinned,
             }

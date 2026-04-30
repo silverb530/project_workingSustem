@@ -3,6 +3,7 @@ import os, logging
 from flask_cors import CORS
 from flask_socketio import SocketIO
 
+
 _wlog = logging.getLogger('werkzeug')
 class _PollingFilter(logging.Filter):
     def filter(self, record):

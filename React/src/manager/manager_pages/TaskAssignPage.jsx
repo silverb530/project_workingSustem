@@ -3,8 +3,61 @@ import '../App_manager.css'
 
 const API_BASE = 'http://localhost:5000'
 
+function getStoredJson(key) {
+    try {
+        const value = localStorage.getItem(key) || sessionStorage.getItem(key)
+        if (!value) return null
+        return JSON.parse(value)
+    } catch {
+        return null
+    }
+}
+
+function getAuthToken() {
+    const directToken =
+        localStorage.getItem('token') ||
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('accessToken') ||
+        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('access_token') ||
+        localStorage.getItem('jwt') ||
+        sessionStorage.getItem('jwt') ||
+        ''
+
+    if (directToken) return directToken
+
+    const loginUser = getStoredJson('loginUser')
+    const authUser = getStoredJson('authUser')
+    const user = loginUser || authUser || {}
+
+    return (
+        user.token ||
+        user.accessToken ||
+        user.access_token ||
+        user.jwt ||
+        user?.user?.token ||
+        user?.user?.accessToken ||
+        user?.user?.access_token ||
+        user?.user?.jwt ||
+        ''
+    )
+}
+
 async function apiGet(path) {
-    const res = await fetch(`${API_BASE}${path}`)
+    const token = getAuthToken()
+
+    if (!token) {
+        throw new Error('로그인이 필요합니다.')
+    }
+
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'GET',
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+
     const data = await res.json()
 
     if (!res.ok) {
@@ -15,9 +68,18 @@ async function apiGet(path) {
 }
 
 async function apiPost(path, body = null) {
+    const token = getAuthToken()
+
+    if (!token) {
+        throw new Error('로그인이 필요합니다.')
+    }
+
     const options = {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+        },
     }
 
     if (body !== null) {
@@ -36,7 +98,12 @@ async function apiPost(path, body = null) {
 
 function getLoginUser() {
     try {
-        const saved = localStorage.getItem('loginUser')
+        const saved =
+            localStorage.getItem('loginUser') ||
+            sessionStorage.getItem('loginUser') ||
+            localStorage.getItem('authUser') ||
+            sessionStorage.getItem('authUser')
+
         if (!saved) return {}
 
         const parsed = JSON.parse(saved)
@@ -58,7 +125,7 @@ function getLoginEmployeeId() {
         user.employee_id ||
         user.employeeId ||
         user.id ||
-        1
+        null
     )
 }
 
@@ -141,6 +208,7 @@ function normalizeTasks(data) {
     return []
 }
 
+//11번에 {currentUser?.name || '사용자'}로 수정
 function TaskAssignPage() {
     const [employees, setEmployees] = useState([])
     const [recentTasks, setRecentTasks] = useState([])
@@ -156,6 +224,15 @@ function TaskAssignPage() {
     const [message, setMessage] = useState('')
 
     useEffect(() => {
+        const token = getAuthToken()
+
+        if (!token) {
+            setError('로그인이 필요합니다.')
+            setEmployees([])
+            setRecentTasks([])
+            return
+        }
+
         loadEmployees()
         loadTasks()
     }, [])
@@ -191,6 +268,13 @@ function TaskAssignPage() {
             setError('')
             setMessage('')
 
+            const token = getAuthToken()
+
+            if (!token) {
+                setError('로그인이 필요합니다.')
+                return
+            }
+
             if (!title.trim()) {
                 setError('업무 제목을 입력하세요.')
                 return
@@ -202,6 +286,11 @@ function TaskAssignPage() {
             }
 
             const assignedBy = getLoginEmployeeId()
+
+            if (!assignedBy) {
+                setError('로그인한 사용자 정보를 찾을 수 없습니다. 다시 로그인하세요.')
+                return
+            }
 
             await apiPost('/api/tasks', {
                 title: title.trim(),

@@ -3,6 +3,70 @@ import '../App_manager.css'
 
 const API_BASE = `http://${window.location.hostname}:5000`
 
+function getStoredJson(key) {
+    try {
+        const value = localStorage.getItem(key) || sessionStorage.getItem(key)
+
+        if (!value) {
+            return null
+        }
+
+        return JSON.parse(value)
+    } catch {
+        return null
+    }
+}
+
+function getAuthToken() {
+    const directToken =
+        localStorage.getItem('token') ||
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('accessToken') ||
+        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('access_token') ||
+        localStorage.getItem('jwt') ||
+        sessionStorage.getItem('jwt') ||
+        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('authToken') ||
+        ''
+
+    if (directToken) {
+        return directToken
+    }
+
+    const loginUser = getStoredJson('loginUser')
+    const user = getStoredJson('user')
+    const authUser = getStoredJson('authUser')
+    const saved = loginUser || user || authUser || {}
+
+    return (
+        saved.token ||
+        saved.accessToken ||
+        saved.access_token ||
+        saved.jwt ||
+        saved.authToken ||
+        saved?.user?.token ||
+        saved?.user?.accessToken ||
+        saved?.user?.access_token ||
+        saved?.user?.jwt ||
+        saved?.user?.authToken ||
+        ''
+    )
+}
+
+function getAuthHeaders() {
+    const token = getAuthToken()
+
+    if (!token) {
+        return {}
+    }
+
+    return {
+        Authorization: `Bearer ${token}`,
+    }
+}
+
 async function readJsonResponse(res, fallbackMessage) {
     let data = {}
 
@@ -20,13 +84,18 @@ async function readJsonResponse(res, fallbackMessage) {
 }
 
 async function apiGet(path) {
-    const res = await fetch(`${API_BASE}${path}`)
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+    })
+
     return readJsonResponse(res, `GET ${path} 실패`)
 }
 
 async function apiDelete(path) {
     const res = await fetch(`${API_BASE}${path}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     })
 
     return readJsonResponse(res, `${path} 삭제 실패`)
@@ -35,6 +104,7 @@ async function apiDelete(path) {
 async function apiPostForm(path, formData) {
     const res = await fetch(`${API_BASE}${path}`, {
         method: 'POST',
+        headers: getAuthHeaders(),
         body: formData,
     })
 
@@ -44,6 +114,7 @@ async function apiPostForm(path, formData) {
 async function apiPutForm(path, formData) {
     const res = await fetch(`${API_BASE}${path}`, {
         method: 'PUT',
+        headers: getAuthHeaders(),
         body: formData,
     })
 
@@ -66,7 +137,12 @@ function formatFileSize(size) {
 
 function getLoginUser() {
     try {
-        const saved = localStorage.getItem('loginUser')
+        const saved =
+            localStorage.getItem('loginUser') ||
+            sessionStorage.getItem('loginUser') ||
+            localStorage.getItem('user') ||
+            sessionStorage.getItem('user')
+
         if (!saved) return {}
 
         const parsed = JSON.parse(saved)
@@ -90,6 +166,30 @@ function getLoginName(user) {
         user.email ||
         '사용자'
     )
+}
+
+function getFileNameFromHeader(disposition, fallbackName) {
+    if (!disposition) {
+        return fallbackName
+    }
+
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i)
+
+    if (utf8Match && utf8Match[1]) {
+        try {
+            return decodeURIComponent(utf8Match[1])
+        } catch {
+            return utf8Match[1]
+        }
+    }
+
+    const fileNameMatch = disposition.match(/filename="?([^"]+)"?/i)
+
+    if (fileNameMatch && fileNameMatch[1]) {
+        return fileNameMatch[1]
+    }
+
+    return fallbackName
 }
 
 function NoticeBoardPage() {
@@ -121,7 +221,7 @@ function NoticeBoardPage() {
     const commentRef = useRef(null)
 
     const loginUser = getLoginUser()
-    const authorId = loginUser.employee_id || loginUser.id || 1
+    const authorId = loginUser.employee_id || loginUser.id || ''
     const loginName = getLoginName(loginUser)
 
     useEffect(() => {
@@ -215,7 +315,10 @@ function NoticeBoardPage() {
         formData.append('title', inputTitle)
         formData.append('content', inputContent)
         formData.append('category', inputCategory)
-        formData.append('author_id', authorId)
+
+        if (authorId) {
+            formData.append('author_id', authorId)
+        }
 
         uploadFiles.forEach((file) => {
             formData.append('files', file)
@@ -340,7 +443,11 @@ function NoticeBoardPage() {
             }
 
             const formData = new FormData()
-            formData.append('author_id', authorId)
+
+            if (authorId) {
+                formData.append('author_id', authorId)
+            }
+
             formData.append('content', inputComment)
 
             await apiPostForm(`/api/boards/${selectedBoard.board_id}/comments`, formData)
@@ -376,8 +483,48 @@ function NoticeBoardPage() {
         }
     }
 
-    function handleDownloadFile(fileId) {
-        window.open(`${API_BASE}/api/boards/files/${fileId}/download`, '_blank')
+    async function handleDownloadFile(file) {
+        try {
+            setMessage('')
+            setError('')
+
+            const res = await fetch(`${API_BASE}/api/boards/files/${file.file_id}/download`, {
+                method: 'GET',
+                headers: getAuthHeaders(),
+            })
+
+            if (!res.ok) {
+                let data = {}
+
+                try {
+                    data = await res.json()
+                } catch {
+                    data = {}
+                }
+
+                throw new Error(data.message || '파일 다운로드 실패')
+            }
+
+            const blob = await res.blob()
+            const disposition = res.headers.get('Content-Disposition') || ''
+            const fileName = getFileNameFromHeader(
+                disposition,
+                file.original_name || `download_${file.file_id}`
+            )
+
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+
+            link.href = url
+            link.download = fileName
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+
+            window.URL.revokeObjectURL(url)
+        } catch (err) {
+            setError(err.message)
+        }
     }
 
     function handleBackToList() {
@@ -744,7 +891,7 @@ function NoticeBoardPage() {
                                 <button
                                     type="button"
                                     className="btn btn-outline btn-sm"
-                                    onClick={() => handleDownloadFile(file.file_id)}
+                                    onClick={() => handleDownloadFile(file)}
                                 >
                                     다운로드
                                 </button>

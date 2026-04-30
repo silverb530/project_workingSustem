@@ -1,10 +1,12 @@
 from flask import Blueprint, request, jsonify
 from db import get_conn
+from security.auth_decorators import role_required
 
 task_bp = Blueprint("task", __name__)
 
 
 @task_bp.route("/api/tasks", methods=["GET"])
+@role_required("ADMIN", "MANAGER")
 def get_tasks():
     conn = None
 
@@ -57,6 +59,7 @@ def get_tasks():
 
 
 @task_bp.route("/api/tasks", methods=["POST"])
+@role_required("ADMIN", "MANAGER")
 def create_task():
     conn = None
 
@@ -140,6 +143,7 @@ def create_task():
 
 
 @task_bp.route("/api/tasks/<int:task_id>/status", methods=["PATCH"])
+@role_required("ADMIN", "MANAGER")
 def update_task_status(task_id):
     conn = None
 
@@ -205,6 +209,7 @@ def update_task_status(task_id):
 
 
 @task_bp.route("/api/tasks/<int:task_id>", methods=["DELETE"])
+@role_required("ADMIN", "MANAGER")
 def delete_task(task_id):
     conn = None
 

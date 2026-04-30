@@ -1,3 +1,4 @@
+#auth_decorators.py
 from functools import wraps
 from flask import request, jsonify, g
 from security.jwt_utils import verify_token

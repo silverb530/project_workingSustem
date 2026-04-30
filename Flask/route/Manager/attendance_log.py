@@ -1,16 +1,18 @@
 from flask import Blueprint, jsonify
 from db import get_conn
-from security.auth_decorators import login_required
+from security.auth_decorators import role_required
 
 attendance_bp = Blueprint("attendance", __name__)
 
 
 @attendance_bp.route("/api/attendance/today", methods=["GET"])
-@login_required
+@role_required("ADMIN", "MANAGER")
 def get_today_attendance():
     conn = None
+
     try:
         conn = get_conn()
+
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT
@@ -34,17 +36,28 @@ def get_today_attendance():
                 WHERE e.is_active = 1
                 ORDER BY e.department, e.name
             """)
+
             rows = cur.fetchall()
-        return jsonify({"success": True, "attendance": rows})
+
+        return jsonify({
+            "success": True,
+            "attendance": rows
+        })
+
     except Exception as e:
-        return jsonify({"success": False, "message": str(e), "attendance": []}), 500
+        return jsonify({
+            "success": False,
+            "message": str(e),
+            "attendance": []
+        }), 500
+
     finally:
         if conn:
             conn.close()
 
 
 @attendance_bp.route("/api/attendance", methods=["GET"])
-@login_required
+@role_required("ADMIN", "MANAGER")
 def get_attendance_logs():
     conn = None
 

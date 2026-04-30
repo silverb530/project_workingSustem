@@ -2,10 +2,11 @@ import os
 import uuid
 from datetime import datetime, date
 
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, g
 from werkzeug.utils import secure_filename
 
 from db import get_conn
+from security.auth_decorators import login_required
 
 board_bp = Blueprint("board", __name__)
 
@@ -31,6 +32,27 @@ def success_options_response():
         "success": True,
         "message": "OPTIONS OK"
     }), 200
+
+
+def get_current_employee_id():
+    try:
+        return int(g.current_user.get("employee_id"))
+    except:
+        return None
+
+
+def is_admin_or_manager():
+    role = str(g.current_user.get("role", "")).upper()
+    return role in ("ADMIN", "MANAGER")
+
+
+def is_owner(author_id):
+    current_employee_id = get_current_employee_id()
+
+    try:
+        return int(author_id) == int(current_employee_id)
+    except:
+        return False
 
 
 def get_request_data():
@@ -171,6 +193,7 @@ def save_board_files(conn, board_id, files):
 
 
 @board_bp.route("/api/boards", methods=["GET"])
+@login_required
 def get_boards():
     conn = None
 
@@ -232,6 +255,7 @@ def get_boards():
 
 
 @board_bp.route("/api/boards/<int:board_id>", methods=["GET"])
+@login_required
 def get_board_detail(board_id):
     conn = None
 
@@ -341,6 +365,7 @@ def get_board_detail(board_id):
 
 
 @board_bp.route("/api/boards", methods=["POST", "OPTIONS"])
+@login_required
 def create_board():
     conn = None
 
@@ -349,6 +374,7 @@ def create_board():
 
     try:
         title, content, category, author_id = get_board_input_data()
+        current_employee_id = get_current_employee_id()
 
         print("===== 게시글 등록 요청 확인 =====")
         print("content_type:", request.content_type)
@@ -373,8 +399,20 @@ def create_board():
                 "message": "게시글 내용을 입력하세요."
             }), 400
 
+        if not current_employee_id:
+            return jsonify({
+                "success": False,
+                "message": "로그인 사용자 정보를 찾을 수 없습니다."
+            }), 401
+
         if not author_id:
-            author_id = "1"
+            author_id = str(current_employee_id)
+
+        if not is_admin_or_manager() and not is_owner(author_id):
+            return jsonify({
+                "success": False,
+                "message": "접근 권한이 없습니다."
+            }), 403
 
         conn = get_conn()
 
@@ -425,6 +463,7 @@ def create_board():
 
 
 @board_bp.route("/api/boards/<int:board_id>", methods=["PUT", "OPTIONS"])
+@login_required
 def update_board(board_id):
     conn = None
 
@@ -451,7 +490,9 @@ def update_board(board_id):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT board_id
+                SELECT
+                    board_id,
+                    author_id
                 FROM boards
                 WHERE board_id = %s
                 """,
@@ -467,6 +508,14 @@ def update_board(board_id):
                     "success": False,
                     "message": "게시글을 찾을 수 없습니다."
                 }), 404
+
+            if not is_admin_or_manager() and not is_owner(board.get("author_id")):
+                conn.rollback()
+
+                return jsonify({
+                    "success": False,
+                    "message": "접근 권한이 없습니다."
+                }), 403
 
             cur.execute(
                 """
@@ -510,6 +559,7 @@ def update_board(board_id):
 
 
 @board_bp.route("/api/boards/<int:board_id>", methods=["DELETE", "OPTIONS"])
+@login_required
 def delete_board(board_id):
     conn = None
 
@@ -520,6 +570,35 @@ def delete_board(board_id):
         conn = get_conn()
 
         with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    board_id,
+                    author_id
+                FROM boards
+                WHERE board_id = %s
+                """,
+                (board_id,)
+            )
+
+            board = cur.fetchone()
+
+            if not board:
+                conn.rollback()
+
+                return jsonify({
+                    "success": False,
+                    "message": "게시글을 찾을 수 없습니다."
+                }), 404
+
+            if not is_admin_or_manager() and not is_owner(board.get("author_id")):
+                conn.rollback()
+
+                return jsonify({
+                    "success": False,
+                    "message": "접근 권한이 없습니다."
+                }), 403
+
             cur.execute(
                 """
                 SELECT file_path
@@ -594,6 +673,7 @@ def delete_board(board_id):
 
 
 @board_bp.route("/api/boards/<int:board_id>/comments", methods=["POST", "OPTIONS"])
+@login_required
 def create_board_comment(board_id):
     conn = None
 
@@ -621,6 +701,7 @@ def create_board_comment(board_id):
 
         content = str(content).strip()
         author_id = str(author_id).strip()
+        current_employee_id = get_current_employee_id()
 
         print("===== 댓글 등록 요청 확인 =====")
         print("content_type:", request.content_type)
@@ -637,8 +718,20 @@ def create_board_comment(board_id):
                 "message": "댓글 내용을 입력하세요."
             }), 400
 
+        if not current_employee_id:
+            return jsonify({
+                "success": False,
+                "message": "로그인 사용자 정보를 찾을 수 없습니다."
+            }), 401
+
         if not author_id:
-            author_id = "1"
+            author_id = str(current_employee_id)
+
+        if not is_admin_or_manager() and not is_owner(author_id):
+            return jsonify({
+                "success": False,
+                "message": "접근 권한이 없습니다."
+            }), 403
 
         conn = get_conn()
 
@@ -703,6 +796,7 @@ def create_board_comment(board_id):
 
 
 @board_bp.route("/api/boards/comments/<int:comment_id>", methods=["DELETE", "OPTIONS"])
+@login_required
 def delete_board_comment(comment_id):
     conn = None
 
@@ -713,6 +807,35 @@ def delete_board_comment(comment_id):
         conn = get_conn()
 
         with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    comment_id,
+                    author_id
+                FROM board_comments
+                WHERE comment_id = %s
+                """,
+                (comment_id,)
+            )
+
+            comment = cur.fetchone()
+
+            if not comment:
+                conn.rollback()
+
+                return jsonify({
+                    "success": False,
+                    "message": "댓글을 찾을 수 없습니다."
+                }), 404
+
+            if not is_admin_or_manager() and not is_owner(comment.get("author_id")):
+                conn.rollback()
+
+                return jsonify({
+                    "success": False,
+                    "message": "접근 권한이 없습니다."
+                }), 403
+
             cur.execute(
                 """
                 DELETE FROM board_comments
@@ -751,6 +874,7 @@ def delete_board_comment(comment_id):
 
 
 @board_bp.route("/api/boards/files/<int:file_id>/download", methods=["GET"])
+@login_required
 def download_board_file(file_id):
     conn = None
 
