@@ -6,6 +6,14 @@ import json
 app_register_bp = Blueprint("app_register", __name__)
 
 
+def get_default_employee_role(roles):
+    if "EMPLOYEE" in roles:
+        return "EMPLOYEE"
+    if "employee" in roles:
+        return "employee"
+    return "EMPLOYEE"
+
+
 @app_register_bp.route("/register-options", methods=["GET"])
 def register_options():
     conn = None
@@ -14,7 +22,7 @@ def register_options():
         roles = get_role_values(conn)
 
         if not roles:
-            roles = ["employee", "manager", "admin"]
+            roles = ["EMPLOYEE", "MANAGER", "ADMIN"]
 
         return jsonify({
             "success": True,
@@ -126,12 +134,16 @@ def register():
         conn = get_conn()
 
         roles = get_role_values(conn)
-        if roles:
-            if role not in roles:
-                role = roles[0]
+        if not roles:
+            roles = ["EMPLOYEE", "MANAGER", "ADMIN"]
+
+        default_role = get_default_employee_role(roles)
+
+        if request.path.startswith("/app/"):
+            role = default_role
         else:
-            if not role:
-                role = "employee"
+            if not role or role not in roles:
+                role = default_role
 
         with conn.cursor() as cur:
             cur.execute(
@@ -187,7 +199,14 @@ def register():
 
             qr_data = json.dumps({
                 "type": "employee_access",
-                "employee_id": new_id
+                "employee_id": new_id,
+                "email": email,
+                "name": name,
+                "phone": phone,
+                "department": department,
+                "position": position,
+                "role": role,
+                "is_active": 1
             }, ensure_ascii=False)
 
             cur.execute(
@@ -206,6 +225,7 @@ def register():
             "result": "success",
             "message": "회원가입이 완료되었습니다.",
             "employee_id": new_id,
+            "role": role,
             "qr_data": qr_data
         })
 
