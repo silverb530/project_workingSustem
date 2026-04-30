@@ -248,7 +248,7 @@ function FaceGate() {
                 employee_id: verify.data.employee_id
             });
             setStatus(result.data.result === 'success'
-                ? `✅ ${verify.data.name}님 ${result.data.message}`
+                ? `✅ ${verify.data.name}님 ${result.data.message} (유사도: ${Math.round(verify.data.score * 100)}%)`
                 : '❌ ' + result.data.message
             );
         } catch (err) {
@@ -263,6 +263,8 @@ function FaceGate() {
         <>
             <style>{`
                 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+                @keyframes scanPulse { 0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,0.5);border-color:#3b82f6;} 50%{box-shadow:0 0 0 8px rgba(59,130,246,0);border-color:#60a5fa;} }
+                @keyframes scanLine { 0%{top:0%} 100%{top:100%} }
                 .fg-mode-btn:hover { opacity: 0.85; }
                 .fg-verify-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(59,130,246,0.38) !important; }
             `}</style>
@@ -300,6 +302,29 @@ function FaceGate() {
                                 <div style={S.liveDot} />
                                 LIVE
                             </div>
+                            {isVerifying && (
+                                <div style={{
+                                    position: 'absolute', inset: 0,
+                                    border: '3px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    background: 'rgba(59,130,246,0.06)',
+                                    animation: 'scanPulse 1.2s ease-in-out infinite',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <div style={{
+                                        position: 'absolute', left: 0, right: 0, height: '2px',
+                                        background: 'linear-gradient(90deg, transparent, #3b82f6, transparent)',
+                                        animation: 'scanLine 1.2s linear infinite',
+                                    }} />
+                                    <span style={{
+                                        color: '#fff', fontSize: '13px', fontWeight: '700',
+                                        background: 'rgba(0,0,0,0.65)',
+                                        padding: '6px 14px', borderRadius: '8px',
+                                    }}>
+                                        얼굴 인식 중...
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div style={S.modeRow}>

@@ -6,14 +6,31 @@ import cv2, os
 
 recognize_bp = Blueprint("recognize", __name__)
 
-face_app = FaceAnalysis(name='buffalo_sc', providers=['CPUExecutionProvider'])
-face_app.prepare(ctx_id=0, det_size=(320, 320))
+face_app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
+face_app.prepare(ctx_id=0, det_size=(160, 160))
 
 known_embeddings = []
 known_ids = []
-THRESHOLD = 0.5  # ✅ 0.3 → 0.5로 상향 (InsightFace 코사인 유사도 기준 동일인 0.5~0.9)
+THRESHOLD = 0.5
+CACHE_FILE = "employees/embeddings_cache.npz"
+
 
 def load_employees():
+    global known_embeddings, known_ids
+    known_embeddings = []
+    known_ids = []
+
+    if os.path.exists(CACHE_FILE):
+        data = np.load(CACHE_FILE, allow_pickle=True)
+        known_embeddings = list(data['embeddings'])
+        known_ids = list(data['ids'])
+        print(f"[INFO] 캐시에서 {len(known_ids)}명 로드 완료: {known_ids}")
+        return
+
+    _build_embeddings()
+
+
+def _build_embeddings():
     global known_embeddings, known_ids
     known_embeddings = []
     known_ids = []
@@ -38,12 +55,23 @@ def load_employees():
         if embeddings:
             known_embeddings.append(np.mean(embeddings, axis=0))
             known_ids.append(emp_id)
-    print(f"[INFO] 총 {len(known_ids)}명 로드 완료: {known_ids}")
+
+    if known_ids:
+        np.savez(CACHE_FILE, embeddings=known_embeddings, ids=known_ids)
+    print(f"[INFO] 총 {len(known_ids)}명 임베딩 계산 및 캐시 저장 완료: {known_ids}")
+
+
+def rebuild_employees():
+    if os.path.exists(CACHE_FILE):
+        os.remove(CACHE_FILE)
+        print("[INFO] 임베딩 캐시 삭제됨 - 재빌드 시작")
+    _build_embeddings()
+
 
 def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
-# 얼굴 등록 여부 확인 API
+
 @recognize_bp.route('/api/face/check-registered', methods=['GET'])
 def check_registered():
     employee_id = request.args.get('employee_id')
@@ -55,24 +83,26 @@ def check_registered():
         return jsonify({"registered": True})
     return jsonify({"registered": False})
 
-# ✅ 얼굴 인식 - 카메라 직접 접근 제거, 프론트에서 이미지 받아서 처리
+
 @recognize_bp.route('/api/face/verify', methods=['POST'])
 def verify_face():
-    # multipart/form-data 로 이미지 + employee_id 수신
     session_employee_id = str(request.form.get('employee_id'))
     file = request.files.get('image')
 
     if not file:
         return jsonify({"result": "fail", "message": "이미지가 전송되지 않았습니다."}), 400
 
-    # 바이트 → numpy → OpenCV 이미지
     nparr = np.frombuffer(file.read(), np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
     if frame is None:
         return jsonify({"result": "fail", "message": "이미지 디코딩 실패"}), 400
 
-    # 얼굴 감지
+    h, w = frame.shape[:2]
+    if max(h, w) > 640:
+        scale = 640 / max(h, w)
+        frame = cv2.resize(frame, (int(w * scale), int(h * scale)))
+
     faces = face_app.get(frame)
     print(f"[DEBUG] 감지된 얼굴 수: {len(faces)}, 등록 직원 수: {len(known_ids)}")
 
@@ -108,8 +138,54 @@ def verify_face():
     return jsonify({
         "result": "success",
         "employee_id": user[0]['employee_id'],
+        "name": user[0]['name'],
+        "score": round(float(best_score), 4)
+    })
+
+
+@recognize_bp.route('/api/face/identify', methods=['POST'])
+def identify_face():
+    file = request.files.get('image')
+
+    if not file:
+        return jsonify({"result": "fail", "message": "이미지가 전송되지 않았습니다."}), 400
+
+    nparr = np.frombuffer(file.read(), np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if frame is None:
+        return jsonify({"result": "fail", "message": "이미지 디코딩 실패"}), 400
+
+    faces = face_app.get(frame)
+    if not faces:
+        return jsonify({"result": "fail", "message": "얼굴을 인식할 수 없습니다."})
+
+    embedding = faces[0].embedding
+    best_score = 0
+    best_id = None
+
+    for i, known_emb in enumerate(known_embeddings):
+        score = cosine_similarity(embedding, known_emb)
+        if score > best_score:
+            best_score = score
+            best_id = known_ids[i]
+
+    if best_score < THRESHOLD or best_id is None:
+        return jsonify({"result": "fail", "message": f"등록되지 않은 얼굴입니다. (유사도: {best_score:.2f})"})
+
+    user = execute_query(
+        "SELECT employee_id, name FROM employees WHERE employee_id = %s",
+        (best_id,)
+    )
+    if not user:
+        return jsonify({"result": "fail", "message": "직원 정보를 찾을 수 없습니다."})
+
+    return jsonify({
+        "result": "success",
+        "employee_id": user[0]['employee_id'],
         "name": user[0]['name']
     })
+
 
 @recognize_bp.route('/api/face/reload', methods=['POST'])
 def reload_face_db():

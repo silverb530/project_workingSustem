@@ -1,7 +1,16 @@
 from flask import Flask, jsonify, send_from_directory
-import os
+import os, logging
 from flask_cors import CORS
 from flask_socketio import SocketIO
+
+_wlog = logging.getLogger('werkzeug')
+class _PollingFilter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        return '/api/chat/notifications' not in msg and \
+               '/api/meetings/notifications' not in msg and \
+               '/api/chatrooms' not in msg
+_wlog.addFilter(_PollingFilter())
 
 # [보안 추가] .env / config.py에서 CORS 허용 주소, 실행 설정을 가져오기 위해 추가
 from config import ALLOWED_ORIGINS, FLASK_HOST, FLASK_PORT, FLASK_DEBUG

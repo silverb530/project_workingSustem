@@ -50,7 +50,7 @@ def generate_frames():
         if frame is None:
             time.sleep(0.033)
             continue
-        _, buffer = cv2.imencode('.jpg', frame)
+        _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
         yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
         time.sleep(0.033)
 
@@ -65,5 +65,5 @@ def camera_snapshot():
     frame = get_latest_frame()
     if frame is None:
         return jsonify({"error": "카메라를 사용할 수 없습니다"}), 503
-    _, buffer = cv2.imencode('.jpg', frame)
+    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
     return Response(buffer.tobytes(), mimetype='image/jpeg')
