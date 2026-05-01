@@ -299,20 +299,10 @@ function Sidebar({
             ],
         },
         {
-            id: 'taskGroup',
-            label: '업무 관리',
-            icon: Icons.CheckSquare,
-            items: [
-                { id: 'taskStatus', label: '업무 현황' },
-                { id: 'taskAssign', label: '업무 할당' },
-            ],
-        },
-        {
             id: 'chatNoticeGroup',
             label: '채팅/공지',
             icon: Icons.MessageCircle,
             items: [
-                { id: 'notice', label: '공지사항' },
                 { id: 'allChat', label: '전체 채팅', badge: 3 },
             ],
         },
@@ -545,12 +535,6 @@ function AppManager() {
                 return <UnregisteredFacePage />
             case 'registFaceReco':
                 return <RegistFaceRecoPage />
-            case 'taskStatus':
-                return <TaskStatusPage />
-            case 'taskAssign':
-                return <TaskAssignPage />
-            case 'notice':
-                return <NoticePage />
             case 'allChat':
                 return <AllChatPage />
             case 'fileShare':

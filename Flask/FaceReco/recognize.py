@@ -51,9 +51,12 @@ def _build_embeddings():
                 continue
             faces = face_app.get(img)
             if faces:
-                embeddings.append(faces[0].embedding)
-        if embeddings:
-            known_embeddings.append(np.mean(embeddings, axis=0))
+                emb = faces[0].embedding
+                if emb is not None:
+                    embeddings.append(emb)
+        valid = [e for e in embeddings if e is not None]
+        if valid:
+            known_embeddings.append(np.mean(valid, axis=0))
             known_ids.append(emp_id)
 
     if known_ids:
