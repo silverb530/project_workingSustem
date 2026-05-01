@@ -20,7 +20,7 @@ function MyPage({ currentUser, onUserUpdated }) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
 
   const fetchProfile = async () => {
     setLoading(true)
@@ -131,8 +131,8 @@ function MyPage({ currentUser, onUserUpdated }) {
         id: updatedUser.employee_id,
       }
 
-      localStorage.setItem('loginUser', JSON.stringify(nextLoginUser))
-      localStorage.setItem('user', JSON.stringify(nextLoginUser))
+      sessionStorage.setItem('loginUser', JSON.stringify(nextLoginUser))
+      sessionStorage.setItem('user', JSON.stringify(nextLoginUser))
 
       if (onUserUpdated) {
         onUserUpdated(nextLoginUser)

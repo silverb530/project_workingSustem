@@ -5,7 +5,7 @@ const API_BASE = 'http://localhost:5000'
 
 function getStoredJson(key) {
     try {
-        const value = localStorage.getItem(key) || sessionStorage.getItem(key)
+        const value = sessionStorage.getItem(key) || sessionStorage.getItem(key)
 
         if (!value) {
             return null
@@ -19,15 +19,15 @@ function getStoredJson(key) {
 
 function getAuthToken() {
     const directToken =
-        localStorage.getItem('token') ||
         sessionStorage.getItem('token') ||
-        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('token') ||
         sessionStorage.getItem('accessToken') ||
-        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('accessToken') ||
         sessionStorage.getItem('access_token') ||
-        localStorage.getItem('jwt') ||
+        sessionStorage.getItem('access_token') ||
         sessionStorage.getItem('jwt') ||
-        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('jwt') ||
+        sessionStorage.getItem('authToken') ||
         sessionStorage.getItem('authToken') ||
         ''
 

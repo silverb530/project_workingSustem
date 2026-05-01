@@ -232,7 +232,7 @@ function QrGate() {
     const [isScanning, setIsScanning] = useState(false)
     const [logs, setLogs] = useState([])
 
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}')
 
     useEffect(() => {
         if (tab === 'record' && user?.employee_id) {

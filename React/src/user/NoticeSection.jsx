@@ -4,7 +4,7 @@ const API_BASE = 'http://localhost:5000'
 
 function getAuthToken() {
     return (
-        localStorage.getItem('token') ||
+        sessionStorage.getItem('token') ||
         sessionStorage.getItem('token') ||
         ''
     )

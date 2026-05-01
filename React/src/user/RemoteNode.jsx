@@ -17,9 +17,9 @@ export default function RemoteNode() {
   const [dragOver, setDragOver]   = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const token      = localStorage.getItem("token");
+  const token      = sessionStorage.getItem("token");
   const headers    = { Authorization: `Bearer ${token}` };
-  const user       = JSON.parse(localStorage.getItem('user') || '{}');
+  const user       = JSON.parse(sessionStorage.getItem('user') || '{}');
   const employeeId = user.employee_id || null;
 
   // 내 PC 로드
@@ -44,7 +44,7 @@ export default function RemoteNode() {
     if (approvalState !== 'pending' || !requestId) return;
     const poll = setInterval(async () => {
       try {
-        const res = await axios.get(`/manage/remote/request/status?request_id=${requestId}`);
+        const res = await axios.get(`/manage/remote/request/status?request_id=${requestId}`, { headers });
         if (res.data.status === 'approved') setApprovalState('approved');
         else if (res.data.status === 'rejected') setApprovalState('rejected');
       } catch {}
@@ -57,7 +57,7 @@ export default function RemoteNode() {
     if (approvalState !== 'approved' || !requestId) return;
     const poll = setInterval(async () => {
       try {
-        const res = await axios.get(`/manage/remote/request/status?request_id=${requestId}`);
+        const res = await axios.get(`/manage/remote/request/status?request_id=${requestId}`, { headers });
         if (res.data.disconnected_at && !selfStopped.current) {
           clearInterval(poll);
           setStatus("stopped");
@@ -108,7 +108,7 @@ export default function RemoteNode() {
       if (requestId) {
         await axios.post("/manage/remote/reconnect", { request_id: requestId }, { headers }).catch(() => {});
       }
-      await axios.post("/api/remote/start", { employee_id: employeeId }, { headers });
+      axios.post("/api/remote/start", { employee_id: employeeId }, { headers, timeout: 3000 }).catch(() => {});
       setStatus("running");
     } catch (err) {
       setStatus("stopped");

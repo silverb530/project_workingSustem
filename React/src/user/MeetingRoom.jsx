@@ -31,7 +31,7 @@ function PeerVideo({ peer }) {
 }
 
 function MeetingRoom({ room, onLeave }) {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
 
     const [peers, setPeers]               = useState({});
     const [micOn, setMicOn]               = useState(true);

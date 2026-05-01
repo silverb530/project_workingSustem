@@ -68,12 +68,12 @@ function Header({
     }, [currentUser?.employee_id, currentUser?.id, currentUser?.name])
 
     function clearAuthStorage() {
-        localStorage.removeItem('loginUser')
-        localStorage.removeItem('user')
-        localStorage.removeItem('token')
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('jwt')
-        localStorage.removeItem('authToken')
+        sessionStorage.removeItem('loginUser')
+        sessionStorage.removeItem('user')
+        sessionStorage.removeItem('token')
+        sessionStorage.removeItem('accessToken')
+        sessionStorage.removeItem('jwt')
+        sessionStorage.removeItem('authToken')
 
         sessionStorage.removeItem('loginUser')
         sessionStorage.removeItem('user')

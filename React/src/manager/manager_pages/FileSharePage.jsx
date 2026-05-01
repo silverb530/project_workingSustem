@@ -31,7 +31,7 @@ async function apiDelete(path) {
 
 function getLoginUser() {
     try {
-        const saved = localStorage.getItem('loginUser')
+        const saved = sessionStorage.getItem('loginUser')
         if (!saved) return {}
 
         const parsed = JSON.parse(saved)

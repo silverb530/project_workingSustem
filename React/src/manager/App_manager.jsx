@@ -23,9 +23,9 @@ import NoticeBoardPage from './manager_pages/NoticeBoardPage.jsx'
 function getLoginUser() {
     try {
         const saved =
-            localStorage.getItem('loginUser') ||
             sessionStorage.getItem('loginUser') ||
-            localStorage.getItem('user') ||
+            sessionStorage.getItem('loginUser') ||
+            sessionStorage.getItem('user') ||
             sessionStorage.getItem('user')
 
         if (!saved) return {}
@@ -74,13 +74,13 @@ function getLoginRoleText(user) {
 }
 
 function clearAuthStorage() {
-    localStorage.removeItem('loginUser')
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('jwt')
-    localStorage.removeItem('authToken')
+    sessionStorage.removeItem('loginUser')
+    sessionStorage.removeItem('user')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('accessToken')
+    sessionStorage.removeItem('access_token')
+    sessionStorage.removeItem('jwt')
+    sessionStorage.removeItem('authToken')
 
     sessionStorage.removeItem('loginUser')
     sessionStorage.removeItem('user')
@@ -93,15 +93,15 @@ function clearAuthStorage() {
 
 function getStoredToken() {
     return (
-        localStorage.getItem('token') ||
         sessionStorage.getItem('token') ||
-        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('token') ||
         sessionStorage.getItem('accessToken') ||
-        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('accessToken') ||
         sessionStorage.getItem('access_token') ||
-        localStorage.getItem('jwt') ||
+        sessionStorage.getItem('access_token') ||
         sessionStorage.getItem('jwt') ||
-        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('jwt') ||
+        sessionStorage.getItem('authToken') ||
         sessionStorage.getItem('authToken') ||
         ''
     )

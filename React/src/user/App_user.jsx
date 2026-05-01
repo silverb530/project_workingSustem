@@ -23,13 +23,13 @@ import NoticeBoardPage from '../manager/manager_pages/NoticeBoardPage.jsx'
 const LOGIN_PATH = '/'
 
 function clearAuthStorage() {
-    localStorage.removeItem('loginUser')
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('jwt')
-    localStorage.removeItem('authToken')
+    sessionStorage.removeItem('loginUser')
+    sessionStorage.removeItem('user')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('accessToken')
+    sessionStorage.removeItem('access_token')
+    sessionStorage.removeItem('jwt')
+    sessionStorage.removeItem('authToken')
 
     sessionStorage.removeItem('loginUser')
     sessionStorage.removeItem('user')
@@ -42,7 +42,7 @@ function clearAuthStorage() {
 
 function getStoredJson(key) {
     try {
-        const value = localStorage.getItem(key) || sessionStorage.getItem(key)
+        const value = sessionStorage.getItem(key) || sessionStorage.getItem(key)
 
         if (!value) {
             return null
@@ -56,15 +56,15 @@ function getStoredJson(key) {
 
 function getAuthToken() {
     const directToken =
-        localStorage.getItem('token') ||
         sessionStorage.getItem('token') ||
-        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('token') ||
         sessionStorage.getItem('accessToken') ||
-        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('accessToken') ||
         sessionStorage.getItem('access_token') ||
-        localStorage.getItem('jwt') ||
+        sessionStorage.getItem('access_token') ||
         sessionStorage.getItem('jwt') ||
-        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('jwt') ||
+        sessionStorage.getItem('authToken') ||
         sessionStorage.getItem('authToken') ||
         ''
 
@@ -155,7 +155,7 @@ function saveTokenFromLoginData(parsedData) {
         ''
 
     if (token) {
-        localStorage.setItem('token', token)
+        sessionStorage.setItem('token', token)
     }
 }
 
@@ -167,13 +167,13 @@ function App_user() {
     const [chatBadge, setChatBadge] = useState(0)
     const [authChecked, setAuthChecked] = useState(false)
     const [notifications, setNotifications] = useState([])
-    const readNotifIdsRef = useRef(new Set(JSON.parse(localStorage.getItem('readNotifIds') || '[]')))
+    const readNotifIdsRef = useRef(new Set(JSON.parse(sessionStorage.getItem('readNotifIds') || '[]')))
 
     useEffect(() => {
         const savedUser =
-            localStorage.getItem('loginUser') ||
             sessionStorage.getItem('loginUser') ||
-            localStorage.getItem('user') ||
+            sessionStorage.getItem('loginUser') ||
+            sessionStorage.getItem('user') ||
             sessionStorage.getItem('user')
 
         if (!savedUser) {
@@ -214,7 +214,7 @@ function App_user() {
     }
 
     const saveReadIds = (ids) => {
-        localStorage.setItem('readNotifIds', JSON.stringify([...ids]))
+        sessionStorage.setItem('readNotifIds', JSON.stringify([...ids]))
     }
 
     // 알림 API 폴링 (3초마다 최신 알림 동기화)

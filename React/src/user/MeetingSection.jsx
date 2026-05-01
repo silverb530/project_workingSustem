@@ -5,7 +5,7 @@ import MeetingRoom from './MeetingRoom';
 import { MEETING_SERVER as API } from '../config';
 
 function MeetingSection({ mini = false }) {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
 
     const [meetings,      setMeetings]      = useState([]);
     const [loading,       setLoading]       = useState(false);

@@ -23,16 +23,16 @@ const Login = () => {
                 const loginUser = data.user
                 const token = data.token
 
-                localStorage.removeItem('token')
-                localStorage.removeItem('loginUser')
-                localStorage.removeItem('user')
+                sessionStorage.removeItem('token')
+                sessionStorage.removeItem('loginUser')
+                sessionStorage.removeItem('user')
 
                 if (token) {
-                    localStorage.setItem('token', token)
+                    sessionStorage.setItem('token', token)
                 }
 
-                localStorage.setItem('loginUser', JSON.stringify(loginUser))
-                localStorage.setItem('user', JSON.stringify(loginUser))
+                sessionStorage.setItem('loginUser', JSON.stringify(loginUser))
+                sessionStorage.setItem('user', JSON.stringify(loginUser))
 
                 alert(`${loginUser.name}님, 환영합니다!`)
 

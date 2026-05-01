@@ -4,10 +4,12 @@ import '../App_manager.css'
 
 function RemoteSessionPage() {
   const [sessions, setSessions] = useState([])
+  const token = sessionStorage.getItem('token')
+  const headers = { Authorization: `Bearer ${token}` }
 
   const fetchSessions = async () => {
     try {
-      const res = await axios.get('/manage/remote/sessions')
+      const res = await axios.get('/manage/remote/sessions', { headers })
       setSessions(res.data.sessions || [])
     } catch {}
   }
@@ -21,7 +23,7 @@ function RemoteSessionPage() {
   const handleDisconnect = async (request_id) => {
     if (!confirm('접속을 강제 종료하시겠습니까?')) return
     try {
-      await axios.post('/manage/remote/disconnect', { request_id })
+      await axios.post('/manage/remote/disconnect', { request_id }, { headers })
       fetchSessions()
     } catch {
       alert('처리 실패')

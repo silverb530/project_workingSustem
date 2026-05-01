@@ -73,7 +73,7 @@ function WorkRequestSection({ currentUser, onTaskUpdate }) {
   const [submitting, setSubmitting] = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
 
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   const authHeader = { Authorization: `Bearer ${token}` }
 
   const fetchAll = async () => {

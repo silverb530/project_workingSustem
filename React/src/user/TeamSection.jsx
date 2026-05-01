@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 const API_BASE = 'http://localhost:5000'
 
 function authHeaders() {
-    const token = localStorage.getItem('token')
+    const token = sessionStorage.getItem('token')
     return { Authorization: token ? `Bearer ${token}` : '' }
 }
 
