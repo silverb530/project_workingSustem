@@ -103,7 +103,7 @@ def find_employee_by_qr(qr_text):
         employee_id = qr_json.get("employee_id")
         email = qr_json.get("email")
 
-        if qr_type != "employee_access":
+        if qr_type not in ["employee_access", "employee_qr"]:
             return None
 
         if not employee_id:
