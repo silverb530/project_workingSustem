@@ -25,7 +25,7 @@ export default function RemoteNode() {
   // 내 PC 로드
   useEffect(() => {
     if (!employeeId) return;
-    axios.get(`/manage/pc/mine?employee_id=${employeeId}`)
+    axios.get(`/manage/pc/mine?employee_id=${employeeId}`, { headers })
       .then(res => {
         if (res.data.pc) {
           setMyPc(res.data.pc);
@@ -95,7 +95,7 @@ export default function RemoteNode() {
   const requestAccess = async () => {
     if (!selectedPcId) { alert('PC를 선택해주세요'); return; }
     try {
-      const res = await axios.post('/manage/remote/request', { employee_id: employeeId, pc_id: selectedPcId });
+      const res = await axios.post('/manage/remote/request', { employee_id: employeeId, pc_id: selectedPcId }, { headers });
       setRequestId(res.data.request_id);
       setApprovalState('pending');
     } catch { alert('접속 요청 실패'); }
@@ -106,7 +106,7 @@ export default function RemoteNode() {
     setStatus("starting");
     try {
       if (requestId) {
-        await axios.post("/manage/remote/reconnect", { request_id: requestId }).catch(() => {});
+        await axios.post("/manage/remote/reconnect", { request_id: requestId }, { headers }).catch(() => {});
       }
       await axios.post("/api/remote/start", { employee_id: employeeId }, { headers });
       setStatus("running");
@@ -120,7 +120,7 @@ export default function RemoteNode() {
     selfStopped.current = true;
     await axios.post("/api/remote/stop", { employee_id: employeeId }, { headers });
     if (requestId) {
-      await axios.post("/manage/remote/disconnect", { request_id: requestId }).catch(() => {});
+      await axios.post("/manage/remote/disconnect", { request_id: requestId }, { headers }).catch(() => {});
     }
     setStatus("stopped");
   };
