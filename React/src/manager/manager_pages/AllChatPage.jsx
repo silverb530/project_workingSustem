@@ -5,8 +5,84 @@ const API_BASE = 'http://localhost:5000'
 const FILE_BASE = API_BASE
 const ROOM_PAGE_SIZE = 10 //채팅 로그 때 추가
 
+function getStoredJson(key) {
+    try {
+        const value = localStorage.getItem(key) || sessionStorage.getItem(key)
+
+        if (!value) {
+            return null
+        }
+
+        return JSON.parse(value)
+    } catch {
+        return null
+    }
+}
+
+function getAuthToken() {
+    const directToken =
+        localStorage.getItem('token') ||
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('accessToken') ||
+        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('access_token') ||
+        localStorage.getItem('jwt') ||
+        sessionStorage.getItem('jwt') ||
+        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('authToken') ||
+        ''
+
+    if (directToken) {
+        return directToken
+    }
+
+    const loginUser = getStoredJson('loginUser')
+    const user = getStoredJson('user')
+    const currentUser = getStoredJson('currentUser')
+    const authUser = getStoredJson('authUser')
+    const saved = loginUser || user || currentUser || authUser || {}
+
+    return (
+        saved.token ||
+        saved.accessToken ||
+        saved.access_token ||
+        saved.jwt ||
+        saved.authToken ||
+        saved?.user?.token ||
+        saved?.user?.accessToken ||
+        saved?.user?.access_token ||
+        saved?.user?.jwt ||
+        saved?.user?.authToken ||
+        saved?.data?.token ||
+        saved?.data?.accessToken ||
+        saved?.data?.access_token ||
+        saved?.result?.token ||
+        saved?.result?.accessToken ||
+        saved?.result?.access_token ||
+        ''
+    )
+}
+
+function getAuthHeaders(extraHeaders = {}) {
+    const token = getAuthToken()
+
+    if (!token) {
+        return extraHeaders
+    }
+
+    return {
+        ...extraHeaders,
+        Authorization: `Bearer ${token}`,
+    }
+}
+
 async function apiGet(path) {
-    const res = await fetch(`${API_BASE}${path}`)
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+    })
+
     const data = await res.json()
 
     if (!res.ok) {
@@ -19,6 +95,7 @@ async function apiGet(path) {
 async function apiDelete(path) {
     const res = await fetch(`${API_BASE}${path}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     })
 
     const data = await res.json()
@@ -33,7 +110,9 @@ async function apiDelete(path) {
 async function apiPost(path, body = null) {
     const options = {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({
+            'Content-Type': 'application/json',
+        }),
     }
 
     if (body !== null) {
@@ -68,6 +147,7 @@ function normalizeRoomType(type) {
 
     return 'GROUP'
 }
+
 //채팅 로그 때 추가
 function getRoomTypeLabel(type) {
     return normalizeRoomType(type) === 'DIRECT' ? '개인' : '그룹'
@@ -77,8 +157,11 @@ function getLoginUser() {
     try {
         const saved =
             localStorage.getItem('loginUser') ||
+            sessionStorage.getItem('loginUser') ||
             localStorage.getItem('user') ||
-            localStorage.getItem('currentUser')
+            sessionStorage.getItem('user') ||
+            localStorage.getItem('currentUser') ||
+            sessionStorage.getItem('currentUser')
 
         if (!saved) return {}
 
@@ -204,7 +287,7 @@ function ChatSection({ showRoomManager }) {
 
     //채팅 로그 때 추가
     const [detailOpen, setDetailOpen] = useState(false)
-    const [selectedRoom, setSelectedRoom] = useState(null) 
+    const [selectedRoom, setSelectedRoom] = useState(null)
     const [detailMessages, setDetailMessages] = useState([])
 
     useEffect(() => {
@@ -233,6 +316,7 @@ function ChatSection({ showRoomManager }) {
             setEmployees([])
         }
     }
+
     //관리자 채팅 로그 확인 때, 추가
     async function loadChatRooms() {
         try {
@@ -243,26 +327,26 @@ function ChatSection({ showRoomManager }) {
             const rooms = normalizeList(data, 'chatrooms')
 
             const converted = rooms.map((room) => {
-              const rawType =
-                room.room_type ||
-                room.type ||
-                room.roomType ||
-                room.chat_type ||
-                room.chatType ||
-               'GROUP'
+                const rawType =
+                    room.room_type ||
+                    room.type ||
+                    room.roomType ||
+                    room.chat_type ||
+                    room.chatType ||
+                    'GROUP'
 
-               return {
-                   id: room.room_id || room.id,
-                   name: room.room_name || room.name || `채팅방 ${room.room_id || room.id}`,
-                   type: normalizeRoomType(rawType),
-                   createdAt: room.created_at || room.createdAt || '',
-                   deletedId: room.deleted_id ?? 0,
-                   unread: 0,
-               }
+                return {
+                    id: room.room_id || room.id,
+                    name: room.room_name || room.name || `채팅방 ${room.room_id || room.id}`,
+                    type: normalizeRoomType(rawType),
+                    createdAt: room.created_at || room.createdAt || '',
+                    deletedId: room.deleted_id ?? 0,
+                    unread: 0,
+                }
             }).filter((room) => room.id && Number(room.deletedId) === 0)
 
             setChannels(converted)
-            setRoomPage(1)//채팅 로그 때 추가
+            setRoomPage(1) //채팅 로그 때 추가
 
             if (converted.length > 0) {
                 const selectedRoom =
@@ -394,6 +478,7 @@ function ChatSection({ showRoomManager }) {
 
             const res = await fetch(`${API_BASE}/api/chatlogs/upload`, {
                 method: 'POST',
+                headers: getAuthHeaders(),
                 body: formData,
             })
 
@@ -480,261 +565,262 @@ function ChatSection({ showRoomManager }) {
             handleSend()
         }
     }
+
     //채팅 로그 때 수정
-   async function handleRoomTitleClick(room) {
-    try {
-        setError('')
+    async function handleRoomTitleClick(room) {
+        try {
+            setError('')
 
-        setSelectedRoom(room)
-        setActiveChannel(room.name)
-        setActiveRoomId(room.id)
-        setDetailOpen(true)
+            setSelectedRoom(room)
+            setActiveChannel(room.name)
+            setActiveRoomId(room.id)
+            setDetailOpen(true)
 
-        const data = await apiGet(`/api/chatlogs?room_id=${room.id}`)
-        const rows = normalizeList(data, 'chatlogs')
+            const data = await apiGet(`/api/chatlogs?room_id=${room.id}`)
+            const rows = normalizeList(data, 'chatlogs')
 
-        const converted = rows.map((log) => ({
-            id: log.id || log.message_id || log.chat_id,
-            roomId: log.room_id,
-            senderId: log.sender_id,
-            userName: log.user || log.name || log.sender_name || String(log.sender_id || '알 수 없음'),
-            content: log.message || log.content || '',
-            time: log.time || log.send_at || '',
-            messageType: log.message_type || 'TEXT',
-            fileName: log.file_name || '',
-            fileUrl: log.file_url ? `${FILE_BASE}${log.file_url}` : '',
-            mimeType: log.mime_type || '',
-            isNotice: Number(log.is_notice || 0) === 1,
-        }))
+            const converted = rows.map((log) => ({
+                id: log.id || log.message_id || log.chat_id,
+                roomId: log.room_id,
+                senderId: log.sender_id,
+                userName: log.user || log.name || log.sender_name || String(log.sender_id || '알 수 없음'),
+                content: log.message || log.content || '',
+                time: log.time || log.send_at || '',
+                messageType: log.message_type || 'TEXT',
+                fileName: log.file_name || '',
+                fileUrl: log.file_url ? `${FILE_BASE}${log.file_url}` : '',
+                mimeType: log.mime_type || '',
+                isNotice: Number(log.is_notice || 0) === 1,
+            }))
 
-        setDetailMessages(converted)
-    } catch (err) {
-        setError(err.message)
+            setDetailMessages(converted)
+        } catch (err) {
+            setError(err.message)
+            setDetailMessages([])
+        }
+    }
+
+    //채팅 로그 때 추가
+    function closeDetailView() {
+        setDetailOpen(false)
+        setSelectedRoom(null)
         setDetailMessages([])
     }
-   }
 
-   //채팅 로그 때 추가
-   function closeDetailView() {
-    setDetailOpen(false)
-    setSelectedRoom(null)
-    setDetailMessages([])
-   }
-   //채팅 로그 때 추가
-   const totalRoomPages = Math.max(1, Math.ceil(channels.length / ROOM_PAGE_SIZE))
+    //채팅 로그 때 추가
+    const totalRoomPages = Math.max(1, Math.ceil(channels.length / ROOM_PAGE_SIZE))
 
-   const safeRoomPage = Math.min(roomPage, totalRoomPages)
+    const safeRoomPage = Math.min(roomPage, totalRoomPages)
 
-   const pagedChannels = channels.slice(
-       (safeRoomPage - 1) * ROOM_PAGE_SIZE,
-       safeRoomPage * ROOM_PAGE_SIZE
-   )
+    const pagedChannels = channels.slice(
+        (safeRoomPage - 1) * ROOM_PAGE_SIZE,
+        safeRoomPage * ROOM_PAGE_SIZE
+    )
 
-   const roomPageNumbers = Array.from(
-       { length: totalRoomPages },
-       (_, index) => index + 1
-   )//채팅 로그 때 추가
+    const roomPageNumbers = Array.from(
+        { length: totalRoomPages },
+        (_, index) => index + 1
+    ) //채팅 로그 때 추가
 
-
-   //채팅 로그 때 대대적으로 수정
+    //채팅 로그 때 대대적으로 수정
     return (
-    <div className="admin-chat-log-page">
-        <div className="admin-chat-log-list-card">
-            <div className="admin-chat-log-toolbar">
-                <h3>채팅 로그</h3>
+        <div className="admin-chat-log-page">
+            <div className="admin-chat-log-list-card">
+                <div className="admin-chat-log-toolbar">
+                    <h3>채팅 로그</h3>
 
-                <div className="admin-chat-log-search">
-                    <input
-                        type="text"
-                        placeholder="채팅방명 검색"
-                    />
+                    <div className="admin-chat-log-search">
+                        <input
+                            type="text"
+                            placeholder="채팅방명 검색"
+                        />
+                    </div>
+                </div>
+
+                {error && <div className="page-error">{error}</div>}
+
+                <div className="admin-chat-log-table-wrap">
+                    <table className="admin-chat-log-table">
+                        <thead>
+                            <tr>
+                                <th className="check-col">
+                                    <input type="checkbox" />
+                                </th>
+                                <th>채팅방명 / 제목</th>
+                                <th>개인 / 그룹</th>
+                                <th>생성일자</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {pagedChannels.map((room) => (
+                                <tr key={room.id}>
+                                    <td>
+                                        <input type="checkbox" />
+                                    </td>
+
+                                    <td>
+                                        <button
+                                            type="button"
+                                            className="admin-chat-room-title-btn"
+                                            onClick={() => handleRoomTitleClick(room)}
+                                        >
+                                            {room.name}
+                                        </button>
+                                    </td>
+
+                                    <td>
+                                        <span className={`admin-room-type-badge ${normalizeRoomType(room.type).toLowerCase()}`}>
+                                            {getRoomTypeLabel(room.type)}
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        {room.createdAt
+                                            ? String(room.createdAt).slice(0, 16)
+                                            : '-'}
+                                    </td>
+                                </tr>
+                            ))}
+
+                            {channels.length === 0 && (
+                                <tr>
+                                    <td colSpan="4" className="admin-chat-log-empty">
+                                        생성된 채팅방이 없습니다.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="admin-chat-log-pagination">
+                    <button
+                        type="button"
+                        onClick={() => setRoomPage(1)}
+                        disabled={safeRoomPage === 1}
+                    >
+                        ≪
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setRoomPage((prev) => Math.max(1, prev - 1))}
+                        disabled={safeRoomPage === 1}
+                    >
+                        ‹
+                    </button>
+
+                    {roomPageNumbers.map((page) => (
+                        <button
+                            key={page}
+                            type="button"
+                            className={safeRoomPage === page ? 'active' : ''}
+                            onClick={() => setRoomPage(page)}
+                        >
+                            {page}
+                        </button>
+                    ))}
+
+                    <button
+                        type="button"
+                        onClick={() => setRoomPage((prev) => Math.min(totalRoomPages, prev + 1))}
+                        disabled={safeRoomPage === totalRoomPages}
+                    >
+                        ›
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setRoomPage(totalRoomPages)}
+                        disabled={safeRoomPage === totalRoomPages}
+                    >
+                        ≫
+                    </button>
                 </div>
             </div>
 
-            {error && <div className="page-error">{error}</div>}
+            {detailOpen && selectedRoom && (
+                <div className="admin-chat-detail-overlay">
+                    <div className="admin-chat-detail-card">
+                        <div className="admin-chat-detail-header">
+                            <div>
+                                <h3>{selectedRoom.name}</h3>
+                                <p>채팅방 ID: {selectedRoom.id}</p>
+                            </div>
 
-            <div className="admin-chat-log-table-wrap">
-                <table className="admin-chat-log-table">
-                    <thead>
-                        <tr>
-                            <th className="check-col">
-                                <input type="checkbox" />
-                            </th>
-                            <th>채팅방명 / 제목</th>
-                            <th>개인 / 그룹</th>
-                            <th>생성일자</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                       {pagedChannels.map((room) => (
-                            <tr key={room.id}>
-                                <td>
-                                    <input type="checkbox" />
-                                </td>
-
-                                <td>
-                                    <button
-                                        type="button"
-                                        className="admin-chat-room-title-btn"
-                                        onClick={() => handleRoomTitleClick(room)}
-                                    >
-                                        {room.name}
-                                    </button>
-                                </td>
-
-                                <td>
-                                    <span className={`admin-room-type-badge ${normalizeRoomType(room.type).toLowerCase()}`}>
-                                        {getRoomTypeLabel(room.type)}
-                                    </span>
-                                </td>
-
-                                <td>
-                                    {room.createdAt
-                                        ? String(room.createdAt).slice(0, 16)
-                                        : '-'}
-                                </td>
-                            </tr>
-                        ))}
-
-                        {channels.length === 0 && (
-                            <tr>
-                                <td colSpan="4" className="admin-chat-log-empty">
-                                    생성된 채팅방이 없습니다.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            <div className="admin-chat-log-pagination">
-               <button
-                  type="button"
-                  onClick={() => setRoomPage(1)}
-                  disabled={safeRoomPage === 1}
-               >
-                    ≪
-               </button>
-
-               <button
-                   type="button"
-                   onClick={() => setRoomPage((prev) => Math.max(1, prev - 1))}
-                   disabled={safeRoomPage === 1}
-                >
-                    ‹
-                </button>
-
-                {roomPageNumbers.map((page) => (
-                   <button
-                        key={page}
-                        type="button"
-                        className={safeRoomPage === page ? 'active' : ''}
-                        onClick={() => setRoomPage(page)}
-                   >
-                       {page}
-                   </button>
-                ))}
-
-                <button
-                    type="button"
-                    onClick={() => setRoomPage((prev) => Math.min(totalRoomPages, prev + 1))}
-                    disabled={safeRoomPage === totalRoomPages}
-                >
-                    ›
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => setRoomPage(totalRoomPages)}
-                    disabled={safeRoomPage === totalRoomPages}
-                >
-                    ≫
-                </button>
-            </div>
-        </div>
-
-        {detailOpen && selectedRoom && (
-            <div className="admin-chat-detail-overlay">
-                <div className="admin-chat-detail-card">
-                    <div className="admin-chat-detail-header">
-                        <div>
-                            <h3>{selectedRoom.name}</h3>
-                            <p>채팅방 ID: {selectedRoom.id}</p>
+                            <button
+                                type="button"
+                                className="admin-chat-detail-close"
+                                onClick={closeDetailView}
+                            >
+                                ×
+                            </button>
                         </div>
 
-                        <button
-                            type="button"
-                            className="admin-chat-detail-close"
-                            onClick={closeDetailView}
-                        >
-                            ×
-                        </button>
-                    </div>
-
-                    <div className="admin-chat-detail-table-wrap">
-                        <table className="admin-chat-detail-table">
-                            <thead>
-                                <tr>
-                                    <th>이름</th>
-                                    <th>내용</th>
-                                    <th>입력 날짜/시간</th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {detailMessages.map((msg) => (
-                                    <tr key={msg.id}>
-                                        <td>{msg.userName}</td>
-
-                                        <td>
-                                            {msg.messageType === 'FILE' ? (
-                                                <div className="admin-detail-file-row">
-                                                    <span>
-                                                        📎 {msg.fileName || msg.content || '첨부 파일'}
-                                                    </span>
-
-                                                    {msg.fileUrl && (
-                                                        <a
-                                                            href={msg.fileUrl}
-                                                            download
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                        >
-                                                            다운로드
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                msg.content
-                                            )}
-
-                                            {msg.isNotice && (
-                                                <span className="admin-detail-notice-badge">
-                                                    공지
-                                                </span>
-                                            )}
-                                        </td>
-
-                                        <td>{msg.time ? String(msg.time).slice(0, 19) : '-'}</td>
-                                    </tr>
-                                ))}
-
-                                {detailMessages.length === 0 && (
+                        <div className="admin-chat-detail-table-wrap">
+                            <table className="admin-chat-detail-table">
+                                <thead>
                                     <tr>
-                                        <td colSpan="3" className="admin-chat-log-empty">
-                                            채팅 내역이 없습니다.
-                                        </td>
+                                        <th>이름</th>
+                                        <th>내용</th>
+                                        <th>입력 날짜/시간</th>
                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                </thead>
+
+                                <tbody>
+                                    {detailMessages.map((msg) => (
+                                        <tr key={msg.id}>
+                                            <td>{msg.userName}</td>
+
+                                            <td>
+                                                {msg.messageType === 'FILE' ? (
+                                                    <div className="admin-detail-file-row">
+                                                        <span>
+                                                            📎 {msg.fileName || msg.content || '첨부 파일'}
+                                                        </span>
+
+                                                        {msg.fileUrl && (
+                                                            <a
+                                                                href={msg.fileUrl}
+                                                                download
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                            >
+                                                                다운로드
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    msg.content
+                                                )}
+
+                                                {msg.isNotice && (
+                                                    <span className="admin-detail-notice-badge">
+                                                        공지
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            <td>{msg.time ? String(msg.time).slice(0, 19) : '-'}</td>
+                                        </tr>
+                                    ))}
+
+                                    {detailMessages.length === 0 && (
+                                        <tr>
+                                            <td colSpan="3" className="admin-chat-log-empty">
+                                                채팅 내역이 없습니다.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-            </div>
-        )}
-    </div>
-   )
+            )}
+        </div>
+    )
 }
 
 function AllChatPage() {

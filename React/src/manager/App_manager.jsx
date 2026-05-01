@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import './App_manager.css'
 import DashboardPage from './manager_pages/DashboardPage.jsx'
 import EmployeeListPage from './manager_pages/EmployeeListPage.jsx'
@@ -22,7 +22,12 @@ import NoticeBoardPage from './manager_pages/NoticeBoardPage.jsx'
 
 function getLoginUser() {
     try {
-        const saved = localStorage.getItem('loginUser')
+        const saved =
+            localStorage.getItem('loginUser') ||
+            sessionStorage.getItem('loginUser') ||
+            localStorage.getItem('user') ||
+            sessionStorage.getItem('user')
+
         if (!saved) return {}
 
         const parsed = JSON.parse(saved)
@@ -49,19 +54,23 @@ function getLoginName(user) {
 }
 
 function getLoginRoleText(user) {
-    if (user.position) {
-        return user.position
-    }
-
     if (user.role === 'ADMIN') {
         return '시스템 관리자'
+    }
+
+    if (user.role === 'MANAGER') {
+        return '매니저'
     }
 
     if (user.role === 'EMPLOYEE') {
         return '직원'
     }
 
-    return user.role || '시스템 관리자'
+    if (user.position) {
+        return user.position
+    }
+
+    return user.role || '관리자'
 }
 
 function clearAuthStorage() {
@@ -69,6 +78,7 @@ function clearAuthStorage() {
     localStorage.removeItem('user')
     localStorage.removeItem('token')
     localStorage.removeItem('accessToken')
+    localStorage.removeItem('access_token')
     localStorage.removeItem('jwt')
     localStorage.removeItem('authToken')
 
@@ -76,8 +86,87 @@ function clearAuthStorage() {
     sessionStorage.removeItem('user')
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('accessToken')
+    sessionStorage.removeItem('access_token')
     sessionStorage.removeItem('jwt')
     sessionStorage.removeItem('authToken')
+}
+
+function getStoredToken() {
+    return (
+        localStorage.getItem('token') ||
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('accessToken') ||
+        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('access_token') ||
+        localStorage.getItem('jwt') ||
+        sessionStorage.getItem('jwt') ||
+        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('authToken') ||
+        ''
+    )
+}
+
+function parseJwt(token) {
+    try {
+        const base64Url = token.split('.')[1]
+        if (!base64Url) return null
+
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+        const jsonPayload = decodeURIComponent(
+            atob(base64)
+                .split('')
+                .map((c) => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`)
+                .join('')
+        )
+
+        return JSON.parse(jsonPayload)
+    } catch {
+        return null
+    }
+}
+
+function getLoginRole() {
+    const user = getLoginUser()
+    const token = getStoredToken()
+    const payload = token ? parseJwt(token) : null
+
+    return String(
+        user.role ||
+        user.admin_role ||
+        user.adminRole ||
+        payload?.role ||
+        payload?.admin_role ||
+        payload?.adminRole ||
+        ''
+    ).toUpperCase()
+}
+
+function isTokenExpired() {
+    const token = getStoredToken()
+    const payload = token ? parseJwt(token) : null
+
+    if (!payload?.exp) {
+        return false
+    }
+
+    const now = Math.floor(Date.now() / 1000)
+    return payload.exp < now
+}
+
+function canAccessManagerPage() {
+    const token = getStoredToken()
+    const role = getLoginRole()
+
+    if (!token) {
+        return false
+    }
+
+    if (isTokenExpired()) {
+        return false
+    }
+
+    return role === 'ADMIN'
 }
 
 const Icons = {
@@ -435,11 +524,11 @@ function Header({ sidebarCollapsed, onMenuClick, onLogout }) {
                     <Icons.Menu />
                 </button>
 
-                <div className="search-wrapper">
-                    <Icons.Search className="search-icon sm" />
-                    <input type="text" placeholder="검색..." className="search-input" />
-                    <span className="search-kbd">Cmd+K</span>
-                </div>
+                {/*<div className="search-wrapper">*/}
+                {/*    <Icons.Search className="search-icon sm" />*/}
+                {/*    */}{/*<input type="text" placeholder="검색..." className="search-input" />*/}
+                {/*    <span className="search-kbd">Cmd+K</span>*/}
+                {/*</div>*/}
             </div>
 
             <div className="header-right">
@@ -495,6 +584,7 @@ function Header({ sidebarCollapsed, onMenuClick, onLogout }) {
 }
 
 function AppManager() {
+    const [authChecked, setAuthChecked] = useState(false)
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
     const [activeSection, setActiveSection] = useState('dashboard')
     const [openGroups, setOpenGroups] = useState({
@@ -506,6 +596,29 @@ function AppManager() {
         fileGroup: false,
         remoteGroup: false,
     })
+
+    useEffect(() => {
+        const token = getStoredToken()
+        const role = getLoginRole()
+
+        if (!token || isTokenExpired()) {
+            clearAuthStorage()
+            window.location.replace('/')
+            return
+        }
+
+        if (role !== 'ADMIN') {
+            window.location.replace('/user')
+            return
+        }
+
+        if (!canAccessManagerPage()) {
+            window.location.replace('/user')
+            return
+        }
+
+        setAuthChecked(true)
+    }, [])
 
     const handleToggleGroup = (groupId) => {
         setOpenGroups((prev) => ({
@@ -550,6 +663,10 @@ function AppManager() {
             default:
                 return <DashboardPage />
         }
+    }
+
+    if (!authChecked) {
+        return null
     }
 
     return (

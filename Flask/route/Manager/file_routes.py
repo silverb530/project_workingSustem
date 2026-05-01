@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from db import get_conn
+from security.auth_decorators import role_required
 import os
 import time
 
@@ -49,6 +50,7 @@ def format_file_size(size):
 
 
 @file_bp.route("/api/files", methods=["GET"])
+@role_required("ADMIN", "MANAGER")
 def get_files():
     conn = None
 
@@ -114,6 +116,7 @@ def get_files():
 
 
 @file_bp.route("/api/files/upload", methods=["POST"])
+@role_required("ADMIN", "MANAGER")
 def upload_file():
     conn = None
 
@@ -205,6 +208,7 @@ def upload_file():
 
 
 @file_bp.route("/api/files/download/<int:file_id>", methods=["GET"])
+@role_required("ADMIN", "MANAGER")
 def download_file(file_id):
     conn = None
 
@@ -251,6 +255,7 @@ def download_file(file_id):
 
 
 @file_bp.route("/api/files/<int:file_id>", methods=["DELETE"])
+@role_required("ADMIN", "MANAGER")
 def delete_file(file_id):
     conn = None
 

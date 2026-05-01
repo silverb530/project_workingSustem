@@ -27,6 +27,7 @@ function clearAuthStorage() {
     localStorage.removeItem('user')
     localStorage.removeItem('token')
     localStorage.removeItem('accessToken')
+    localStorage.removeItem('access_token')
     localStorage.removeItem('jwt')
     localStorage.removeItem('authToken')
 
@@ -34,8 +35,73 @@ function clearAuthStorage() {
     sessionStorage.removeItem('user')
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('accessToken')
+    sessionStorage.removeItem('access_token')
     sessionStorage.removeItem('jwt')
     sessionStorage.removeItem('authToken')
+}
+
+function getStoredJson(key) {
+    try {
+        const value = localStorage.getItem(key) || sessionStorage.getItem(key)
+
+        if (!value) {
+            return null
+        }
+
+        return JSON.parse(value)
+    } catch {
+        return null
+    }
+}
+
+function getAuthToken() {
+    const directToken =
+        localStorage.getItem('token') ||
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('accessToken') ||
+        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('access_token') ||
+        localStorage.getItem('jwt') ||
+        sessionStorage.getItem('jwt') ||
+        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('authToken') ||
+        ''
+
+    if (directToken) {
+        return directToken
+    }
+
+    const loginUser = getStoredJson('loginUser')
+    const user = getStoredJson('user')
+    const authUser = getStoredJson('authUser')
+    const saved = loginUser || user || authUser || {}
+
+    return (
+        saved.token ||
+        saved.accessToken ||
+        saved.access_token ||
+        saved.jwt ||
+        saved.authToken ||
+        saved?.user?.token ||
+        saved?.user?.accessToken ||
+        saved?.user?.access_token ||
+        saved?.user?.jwt ||
+        saved?.user?.authToken ||
+        ''
+    )
+}
+
+function getAuthHeaders() {
+    const token = getAuthToken()
+
+    if (!token) {
+        return {}
+    }
+
+    return {
+        Authorization: `Bearer ${token}`,
+    }
 }
 
 function normalizeLoginUser(rawUser) {
@@ -79,6 +145,20 @@ function getUnreadCountFromRoom(room) {
     return count
 }
 
+function saveTokenFromLoginData(parsedData) {
+    const token =
+        parsedData?.token ||
+        parsedData?.accessToken ||
+        parsedData?.access_token ||
+        parsedData?.jwt ||
+        parsedData?.authToken ||
+        ''
+
+    if (token) {
+        localStorage.setItem('token', token)
+    }
+}
+
 function App_user() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
     const [activeSection, setActiveSection] = useState('dashboard')
@@ -90,7 +170,11 @@ function App_user() {
     const readNotifIdsRef = useRef(new Set(JSON.parse(localStorage.getItem('readNotifIds') || '[]')))
 
     useEffect(() => {
-        const savedUser = localStorage.getItem('loginUser') || localStorage.getItem('user')
+        const savedUser =
+            localStorage.getItem('loginUser') ||
+            sessionStorage.getItem('loginUser') ||
+            localStorage.getItem('user') ||
+            sessionStorage.getItem('user')
 
         if (!savedUser) {
             clearAuthStorage()
@@ -99,9 +183,15 @@ function App_user() {
         }
 
         try {
-            const parsedUser = normalizeLoginUser(JSON.parse(savedUser))
+            const parsedData = JSON.parse(savedUser)
 
-            if (!parsedUser || !parsedUser.employee_id) {
+            saveTokenFromLoginData(parsedData)
+
+            const rawUser = parsedData.user ? parsedData.user : parsedData
+            const parsedUser = normalizeLoginUser(rawUser)
+            const token = getAuthToken()
+
+            if (!parsedUser || !parsedUser.employee_id || !token) {
                 clearAuthStorage()
                 window.location.replace(LOGIN_PATH)
                 return
@@ -132,9 +222,17 @@ function App_user() {
         if (!employeeId) return
 
         try {
+            const headers = getAuthHeaders()
+
             const [chatRes, meetingRes] = await Promise.all([
-                fetch(`${API_BASE}/api/chat/notifications/${employeeId}`),
-                fetch(`${API_BASE}/api/meetings/notifications/${employeeId}`),
+                fetch(`${API_BASE}/api/chat/notifications/${employeeId}`, {
+                    method: 'GET',
+                    headers,
+                }),
+                fetch(`${API_BASE}/api/meetings/notifications/${employeeId}`, {
+                    method: 'GET',
+                    headers,
+                }),
             ])
 
             const chatData = await chatRes.json()
@@ -220,7 +318,11 @@ function App_user() {
         }
 
         try {
-            const res = await fetch(`${API_BASE}/api/work-requests/received?department=${encodeURIComponent(dept)}`)
+            const res = await fetch(`${API_BASE}/api/work-requests/received?department=${encodeURIComponent(dept)}`, {
+                method: 'GET',
+                headers: getAuthHeaders(),
+            })
+
             const data = await res.json()
 
             if (data.success) {
@@ -241,7 +343,11 @@ function App_user() {
         }
 
         try {
-            const res = await fetch(`${API_BASE}/api/chatrooms?employee_id=${employeeId}`)
+            const res = await fetch(`${API_BASE}/api/chatrooms?employee_id=${employeeId}`, {
+                method: 'GET',
+                headers: getAuthHeaders(),
+            })
+
             const data = await res.json()
 
             if (!res.ok) {

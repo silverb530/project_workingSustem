@@ -421,9 +421,19 @@ input {
 }
 
 @keyframes badge-pop {
-    0%   { transform: scale(0.6); opacity: 0; }
-    70%  { transform: scale(1.15); }
-    100% { transform: scale(1); opacity: 1; }
+    0% {
+        transform: scale(0.6);
+        opacity: 0;
+    }
+
+    70% {
+        transform: scale(1.15);
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 /* 알림 래퍼 (버튼 + 드롭다운 묶음) */
@@ -450,8 +460,15 @@ input {
 }
 
 @keyframes dropdown-slide {
-    from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 /* 드롭다운 헤더 */
@@ -468,11 +485,11 @@ input {
     border-radius: 16px 16px 0 0;
 }
 
-.notification-header span {
-    font-size: 15px;
-    font-weight: 700;
-    color: #0f172a;
-}
+    .notification-header span {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+    }
 
 /* 모두 읽음 버튼 */
 .btn-text-sm {
@@ -487,9 +504,9 @@ input {
     transition: background 0.15s;
 }
 
-.btn-text-sm:hover {
-    background: #eef2ff;
-}
+    .btn-text-sm:hover {
+        background: #eef2ff;
+    }
 
 /* 알림 아이템 */
 .notification-item {
@@ -506,23 +523,23 @@ input {
     width: 100%;
 }
 
-.notification-item:last-child {
-    border-bottom: none;
-}
+    .notification-item:last-child {
+        border-bottom: none;
+    }
 
-.notification-item:hover {
-    background: #f8fafc;
-}
+    .notification-item:hover {
+        background: #f8fafc;
+    }
 
-.notification-item.unread {
-    background: #fafafa;
-    border-left: 3px solid #6366f1;
-    padding-left: 15px;
-}
+    .notification-item.unread {
+        background: #fafafa;
+        border-left: 3px solid #6366f1;
+        padding-left: 15px;
+    }
 
-.notification-item.unread:hover {
-    background: #f5f3ff;
-}
+        .notification-item.unread:hover {
+            background: #f5f3ff;
+        }
 
 /* 읽음/안읽음 점 */
 .notification-dot {
@@ -1429,9 +1446,9 @@ input {
     transition: background 0.15s;
 }
 
-.btn-leave-meeting:hover {
-    background: #fee2e2;
-}
+    .btn-leave-meeting:hover {
+        background: #fee2e2;
+    }
 
 /* ===============================
    Icons (SVG)
@@ -1938,28 +1955,28 @@ input {
     border-collapse: collapse;
 }
 
-.team-table th,
-.team-table td {
-    padding: 13px 16px;
-    border-bottom: 1px solid var(--border);
-    text-align: center;
-    font-size: 14px;
-}
+    .team-table th,
+    .team-table td {
+        padding: 13px 16px;
+        border-bottom: 1px solid var(--border);
+        text-align: center;
+        font-size: 14px;
+    }
 
-.team-table th {
-    background-color: var(--background);
-    color: var(--muted-foreground);
-    font-weight: 600;
-    font-size: 13px;
-}
+    .team-table th {
+        background-color: var(--background);
+        color: var(--muted-foreground);
+        font-weight: 600;
+        font-size: 13px;
+    }
 
-.team-table td {
-    color: var(--foreground);
-}
+    .team-table td {
+        color: var(--foreground);
+    }
 
-.team-table tbody tr:hover td {
-    background-color: var(--secondary);
-}
+    .team-table tbody tr:hover td {
+        background-color: var(--secondary);
+    }
 
 .team-table-name {
     font-weight: 600;
@@ -2035,9 +2052,9 @@ input {
     outline: none;
 }
 
-.team-search-input:focus {
-    border-color: var(--primary);
-}
+    .team-search-input:focus {
+        border-color: var(--primary);
+    }
 
 .team-search-btn {
     flex-shrink: 0;
@@ -2060,9 +2077,9 @@ input {
     transition: background 0.15s;
 }
 
-.team-reset-btn:hover {
-    background: var(--secondary);
-}
+    .team-reset-btn:hover {
+        background: var(--secondary);
+    }
 
 /* ── 팀원 오류 ── */
 .team-error {
@@ -2083,33 +2100,32 @@ input {
     margin-top: 16px;
 }
 
-.team-pagination button {
-    padding: 5px 11px;
-    border: 1px solid #d1d5db;
-    border-radius: 5px;
-    background: #fff;
-    font-size: 13px;
-    cursor: pointer;
-    color: #374151;
-    transition: background 0.15s;
-}
+    .team-pagination button {
+        padding: 5px 11px;
+        border: 1px solid #d1d5db;
+        border-radius: 5px;
+        background: #fff;
+        font-size: 13px;
+        cursor: pointer;
+        color: #374151;
+        transition: background 0.15s;
+    }
 
-.team-pagination button:hover:not(:disabled) {
-    background: #f3f4f6;
-}
+        .team-pagination button:hover:not(:disabled) {
+            background: #f3f4f6;
+        }
 
-.team-pagination button.active {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-    font-weight: 700;
-}
+        .team-pagination button.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+            font-weight: 700;
+        }
 
-.team-pagination button:disabled {
-    opacity: 0.4;
-    cursor: default;
-}
-
+        .team-pagination button:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
 
 /* ===============================
    Chat Notice Bar
@@ -2291,3 +2307,46 @@ input {
     .chat-file-download-btn:active {
         transform: scale(0.98);
     }
+
+/* ===============================
+   Sidebar Overlay Fix
+   사이드바 펼쳐도 화면 밀림 방지
+   =============================== */
+
+/* 본문은 항상 접힌 사이드바 기준으로 고정 */
+.main-content,
+.main-content.collapsed {
+    padding-left: var(--sidebar-collapsed) !important;
+}
+
+/* 헤더도 항상 접힌 사이드바 기준으로 고정 */
+.header,
+.header.collapsed {
+    left: var(--sidebar-collapsed) !important;
+}
+
+/* 사이드바는 화면 위에 덮이도록 */
+.sidebar {
+    z-index: 100;
+}
+
+/* 헤더는 사이드바보다 아래 */
+.header {
+    z-index: 90;
+}
+
+/* 펼쳐진 사이드바는 본문을 밀지 않고 덮음 */
+.sidebar:not(.collapsed) {
+    width: var(--sidebar-width);
+    box-shadow: 8px 0 24px rgba(15, 23, 42, 0.08);
+}
+
+/* 접힌 사이드바 */
+.sidebar.collapsed {
+    width: var(--sidebar-collapsed);
+}
+
+/* 가로 스크롤 방지 */
+body {
+    overflow-x: hidden;
+}

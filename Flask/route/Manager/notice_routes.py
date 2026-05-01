@@ -1,6 +1,7 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from db import get_conn
 from datetime import datetime, date
+from security.auth_decorators import login_required, role_required
 
 notice_bp = Blueprint("notice", __name__)
 
@@ -18,6 +19,7 @@ def make_json_safe(data):
 
 @notice_bp.route("/api/notices", methods=["GET"])
 @notice_bp.route("/app/notices", methods=["GET"])
+@login_required
 def get_notices():
     conn = None
     try:
@@ -66,6 +68,7 @@ def get_notices():
 
 @notice_bp.route("/api/notices", methods=["POST"])
 @notice_bp.route("/app/notices", methods=["POST"])
+@role_required("ADMIN", "MANAGER")
 def create_notice():
     conn = None
     try:
@@ -73,7 +76,7 @@ def create_notice():
 
         title = (data.get("title") or "").strip()
         content = (data.get("content") or "").strip()
-        author_id = data.get("author_id")
+        author_id = data.get("author_id") or g.current_user.get("employee_id")
         is_pinned = 1 if data.get("is_pinned") else 0
 
         if not title:
@@ -153,6 +156,7 @@ def create_notice():
 
 @notice_bp.route("/api/notices/<int:notice_id>", methods=["PUT"])
 @notice_bp.route("/app/notices/<int:notice_id>", methods=["PUT"])
+@role_required("ADMIN", "MANAGER")
 def update_notice(notice_id):
     conn = None
     try:
@@ -223,6 +227,7 @@ def update_notice(notice_id):
 
 @notice_bp.route("/api/notices/<int:notice_id>", methods=["DELETE"])
 @notice_bp.route("/app/notices/<int:notice_id>", methods=["DELETE"])
+@role_required("ADMIN", "MANAGER")
 def delete_notice(notice_id):
     conn = None
     try:

@@ -1,20 +1,68 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from db import get_conn
+from security.auth_decorators import login_required, role_required
 
 chat_room_bp = Blueprint("chat_room", __name__)
 
 
+def is_admin_or_manager():
+    role = str(g.current_user.get("role", "")).upper()
+    return role in ("ADMIN", "MANAGER")
+
+
+def get_current_employee_id():
+    try:
+        return int(g.current_user.get("employee_id"))
+    except:
+        return None
+
+
+def is_room_member(conn, room_id, employee_id):
+    if not employee_id:
+        return False
+
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT COUNT(*) AS cnt
+            FROM chat_room_members
+            WHERE room_id = %s
+              AND employee_id = %s
+        """, (room_id, employee_id))
+
+        row = cur.fetchone()
+
+    return bool(row and row["cnt"] > 0)
+
+
 @chat_room_bp.route("/api/chatrooms", methods=["GET"])
+@login_required
 def get_chatrooms():
     conn = None
 
     try:
         employee_id = request.args.get("employee_id")
+        current_employee_id = get_current_employee_id()
 
         conn = get_conn()
 
         with conn.cursor() as cur:
             if employee_id:
+                try:
+                    employee_id = int(employee_id)
+                except:
+                    return jsonify({
+                        "success": False,
+                        "message": "직원 ID가 올바르지 않습니다.",
+                        "chatrooms": []
+                    }), 400
+
+                if not is_admin_or_manager() and employee_id != current_employee_id:
+                    return jsonify({
+                        "success": False,
+                        "message": "접근 권한이 없습니다.",
+                        "chatrooms": []
+                    }), 403
+
                 cur.execute("""
                     SELECT
                         cr.room_id,
@@ -30,6 +78,13 @@ def get_chatrooms():
                     ORDER BY cr.room_id ASC
                 """, (employee_id,))
             else:
+                if not is_admin_or_manager():
+                    return jsonify({
+                        "success": False,
+                        "message": "접근 권한이 없습니다.",
+                        "chatrooms": []
+                    }), 403
+
                 cur.execute("""
                     SELECT
                         room_id,
@@ -62,6 +117,7 @@ def get_chatrooms():
 
 
 @chat_room_bp.route("/api/chatrooms", methods=["POST"])
+@role_required("ADMIN", "MANAGER")
 def create_chatroom():
     conn = None
 
@@ -74,6 +130,7 @@ def create_chatroom():
             data.get("created_by")
             or data.get("employee_id")
             or data.get("user_id")
+            or g.current_user.get("employee_id")
         )
 
         member_ids = data.get("member_ids") or data.get("members") or []
@@ -161,6 +218,7 @@ def create_chatroom():
 
 
 @chat_room_bp.route("/api/chatrooms/<int:room_id>", methods=["DELETE"])
+@role_required("ADMIN", "MANAGER")
 def delete_chatroom(room_id):
     conn = None
 
@@ -196,11 +254,20 @@ def delete_chatroom(room_id):
 
 
 @chat_room_bp.route("/api/chatrooms/<int:room_id>/members", methods=["GET"])
+@login_required
 def get_chatroom_members(room_id):
     conn = None
 
     try:
         conn = get_conn()
+        current_employee_id = get_current_employee_id()
+
+        if not is_admin_or_manager() and not is_room_member(conn, room_id, current_employee_id):
+            return jsonify({
+                "success": False,
+                "message": "접근 권한이 없습니다.",
+                "members": []
+            }), 403
 
         with conn.cursor() as cur:
             cur.execute("""
@@ -238,6 +305,7 @@ def get_chatroom_members(room_id):
 
 
 @chat_room_bp.route("/api/chatrooms/<int:room_id>/members", methods=["POST"])
+@role_required("ADMIN", "MANAGER")
 def add_chatroom_member(room_id):
     conn = None
 
@@ -310,6 +378,7 @@ def add_chatroom_member(room_id):
 
 
 @chat_room_bp.route("/api/chatrooms/<int:room_id>/members/<int:employee_id>", methods=["DELETE"])
+@role_required("ADMIN", "MANAGER")
 def delete_chatroom_member(room_id, employee_id):
     conn = None
 

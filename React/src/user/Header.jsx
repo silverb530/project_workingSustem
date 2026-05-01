@@ -111,21 +111,21 @@ function Header({
     return (
         <header className={`header ${sidebarCollapsed ? 'collapsed' : ''}`}>
             <div className="header-left">
-                <button className="icon-btn" onClick={onMenuClick}>
-                    <Icons.Menu />
-                </button>
+                {/*<button className="icon-btn" onClick={onMenuClick}>*/}
+                {/*    <Icons.Menu />*/}
+                {/*</button>*/}
 
-                <div className="search-wrapper">
-                    <Icons.Search className="search-icon sm" />
-                    <input
-                        type="text"
-                        value={searchValue}
-                        onChange={e => setSearchValue(e.target.value)}
-                        placeholder="검색어를 입력하세요..."
-                        className="search-input"
-                    />
-                    <span className="search-kbd">Cmd+K</span>
-                </div>
+                {/*<div className="search-wrapper">*/}
+                {/*    <Icons.Search className="search-icon sm" />*/}
+                {/*    <input*/}
+                {/*        type="text"*/}
+                {/*        value={searchValue}*/}
+                {/*        onChange={e => setSearchValue(e.target.value)}*/}
+                {/*        placeholder="검색어를 입력하세요..."*/}
+                {/*        className="search-input"*/}
+                {/*    />*/}
+                {/*    <span className="search-kbd">Cmd+K</span>*/}
+                {/*</div>*/}
             </div>
 
             <div className="header-right">

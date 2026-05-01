@@ -3,8 +3,84 @@ import '../App_manager.css'
 
 const API_BASE = 'http://localhost:5000'
 
+function getStoredJson(key) {
+    try {
+        const value = localStorage.getItem(key) || sessionStorage.getItem(key)
+
+        if (!value) {
+            return null
+        }
+
+        return JSON.parse(value)
+    } catch {
+        return null
+    }
+}
+
+function getAuthToken() {
+    const directToken =
+        localStorage.getItem('token') ||
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('accessToken') ||
+        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('access_token') ||
+        localStorage.getItem('jwt') ||
+        sessionStorage.getItem('jwt') ||
+        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('authToken') ||
+        ''
+
+    if (directToken) {
+        return directToken
+    }
+
+    const loginUser = getStoredJson('loginUser')
+    const user = getStoredJson('user')
+    const currentUser = getStoredJson('currentUser')
+    const authUser = getStoredJson('authUser')
+    const saved = loginUser || user || currentUser || authUser || {}
+
+    return (
+        saved.token ||
+        saved.accessToken ||
+        saved.access_token ||
+        saved.jwt ||
+        saved.authToken ||
+        saved?.user?.token ||
+        saved?.user?.accessToken ||
+        saved?.user?.access_token ||
+        saved?.user?.jwt ||
+        saved?.user?.authToken ||
+        saved?.data?.token ||
+        saved?.data?.accessToken ||
+        saved?.data?.access_token ||
+        saved?.result?.token ||
+        saved?.result?.accessToken ||
+        saved?.result?.access_token ||
+        ''
+    )
+}
+
+function getAuthHeaders(extraHeaders = {}) {
+    const token = getAuthToken()
+
+    if (!token) {
+        return extraHeaders
+    }
+
+    return {
+        ...extraHeaders,
+        Authorization: `Bearer ${token}`,
+    }
+}
+
 async function apiGet(path) {
-    const res = await fetch(`${API_BASE}${path}`)
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+    })
+
     const data = await res.json()
 
     if (!res.ok) {
@@ -17,7 +93,9 @@ async function apiGet(path) {
 async function apiPatch(path, body = null) {
     const options = {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({
+            'Content-Type': 'application/json',
+        }),
     }
 
     if (body !== null) {
@@ -37,6 +115,7 @@ async function apiPatch(path, body = null) {
 async function apiDelete(path) {
     const res = await fetch(`${API_BASE}${path}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     })
 
     const data = await res.json()

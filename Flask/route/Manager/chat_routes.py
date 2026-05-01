@@ -1,6 +1,7 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from db import get_conn
 from datetime import datetime, date
+from security.auth_decorators import role_required
 
 Mchat_bp = Blueprint("Mchat", __name__)
 
@@ -18,6 +19,7 @@ def make_json_safe(data):
 
 @Mchat_bp.route("/api/chatlogs", methods=["GET"])
 @Mchat_bp.route("/app/chatlogs", methods=["GET"])
+@role_required("ADMIN", "MANAGER")
 def get_chatlogs():
     conn = None
     try:
@@ -74,14 +76,27 @@ def get_chatlogs():
 
 @Mchat_bp.route("/api/chatlogs", methods=["POST"])
 @Mchat_bp.route("/app/chatlogs", methods=["POST"])
+@role_required("ADMIN", "MANAGER")
 def create_chatlog():
     conn = None
     try:
         data = request.get_json(silent=True) or {}
 
         room_id = data.get("room_id") or 1
-        sender_id = data.get("sender_id") or data.get("user_id") or data.get("employee_id") or 1
+        sender_id = (
+            data.get("sender_id")
+            or data.get("user_id")
+            or data.get("employee_id")
+            or g.current_user.get("employee_id")
+        )
         content = (data.get("message") or data.get("content") or "").strip()
+
+        if not sender_id:
+            return jsonify({
+                "success": False,
+                "result": "fail",
+                "message": "로그인 사용자 정보를 찾을 수 없습니다."
+            }), 400
 
         if not content:
             return jsonify({
@@ -145,6 +160,7 @@ def create_chatlog():
 
 @Mchat_bp.route("/api/chatlogs/<int:message_id>", methods=["DELETE"])
 @Mchat_bp.route("/app/chatlogs/<int:message_id>", methods=["DELETE"])
+@role_required("ADMIN", "MANAGER")
 def delete_chatlog(message_id):
     conn = None
     try:
