@@ -3,7 +3,7 @@ import Icons from './Icons'
 import Avatar from './Avatar'
 
 // 추가: Flask API 주소
-const API_BASE = `http://localhost:5000`
+const API_BASE = `http://${window.location.hostname}:5000`
 
 const FALLBACK_TEAM_MEMBERS = [] //8번부터 실시간 때 수정 
 
